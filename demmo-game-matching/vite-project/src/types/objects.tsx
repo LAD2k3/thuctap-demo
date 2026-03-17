@@ -1,12 +1,13 @@
-// --- Định nghĩa kiểu dữ liệu ---
-export interface Item {
-  id: string;
-  name: string;
-  imgsrc: string;
-  groupId: string;
+// types.ts
+export interface CardData {
+  imageUrl: string;
+  keyword: string;
 }
-export interface Group {
+
+export interface GameCard extends CardData {
   id: string;
-  name: string;
-  imgsrc: string;
+  matched: boolean;
+  flipped: boolean;
 }
+
+export type MessageType = "success" | "error";

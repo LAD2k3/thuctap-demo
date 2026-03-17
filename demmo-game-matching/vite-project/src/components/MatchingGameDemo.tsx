@@ -1,148 +1,207 @@
-import {
-  defaultDropAnimationSideEffects,
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { AnimatePresence, motion } from "framer-motion";
-import React, { useState } from "react";
-import { MY_APP_DATA } from "../data";
-import type { Item } from "../types/objects";
-import DraggableItem, { ItemCard } from "./DraggableItem";
-import GroupColumn from "./GroupColumn";
+// MatchingGame.tsx
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import type { CardData, GameCard, MessageType } from "../types/objects";
 
-const MatchingGameDemo: React.FC = () => {
-  const [unansweredItems, setUnansweredItems] = useState<Item[]>(
-    MY_APP_DATA.items,
-  );
-  const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>(
-    Object.fromEntries(MY_APP_DATA.groups.map((g) => [g.id, []])),
-  );
-  const [activeItem, setActiveItem] = useState<Item | null>(null);
-  const [feedback, setFeedback] = useState<{
-    type: "correct" | "incorrect";
-    msg: string;
-  } | null>(null);
+interface MatchingGameProps {
+  cardsData: CardData[];
+}
 
-  // Cấu hình Sensor để không bị xung đột với scroll trên mobile
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 }, // Kéo 8px mới bắt đầu drag
-    }),
-  );
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveItem(event.active.data.current as Item);
+const MatchingGameDemo: React.FC<MatchingGameProps> = ({ cardsData }) => {
+  // Hàm khởi tạo bộ bài (mỗi cặp xuất hiện 2 lần và trộn)
+  const initializeCards = (): GameCard[] => {
+    const duplicated = cardsData.flatMap((card, index) => [
+      { ...card, id: `${index}-a`, matched: false, flipped: false },
+      { ...card, id: `${index}-b`, matched: false, flipped: false },
+    ]);
+    // Trộn ngẫu nhiên (Fisher–Yates)
+    for (let i = duplicated.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [duplicated[i], duplicated[j]] = [duplicated[j], duplicated[i]];
+    }
+    return duplicated;
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveItem(null);
+  const [cards, setCards] = useState<GameCard[]>(initializeCards);
+  const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
+  const [disabled, setDisabled] = useState<boolean>(false);
+  const [message, setMessage] = useState<{
+    type: MessageType;
+    text: string;
+  } | null>(null);
 
-    if (!over) return;
+  // Xử lý khi click vào thẻ
+  const handleCardClick = (index: number) => {
+    if (disabled) return;
+    const currentCard = cards[index];
+    if (currentCard.matched || currentCard.flipped) return;
 
-    const item = active.data.current as Item;
-    const targetGroupId = over.id as string;
+    // Lật thẻ hiện tại
+    const newCards = [...cards];
+    newCards[index].flipped = true;
+    setCards(newCards);
 
-    if (item.groupId === targetGroupId) {
-      // ĐÚNG: Chuyển item sang group mới
-      setUnansweredItems((prev) => prev.filter((i) => i.id !== item.id));
-      setGroupedItems((prev) => ({
-        ...prev,
-        [targetGroupId]: [...prev[targetGroupId], item],
-      }));
-      showFeedback("correct", "Chính xác! 🎉");
-    } else {
-      // SAI
-      showFeedback("incorrect", "Thử lại nhé! 🤔");
+    const newFlipped = [...flippedIndices, index];
+    setFlippedIndices(newFlipped);
+
+    // Nếu đã lật 2 thẻ
+    if (newFlipped.length === 2) {
+      setDisabled(true);
+      const [firstIdx, secondIdx] = newFlipped;
+      const firstCard = cards[firstIdx];
+      const secondCard = cards[secondIdx];
+
+      // Kiểm tra cặp
+      if (firstCard.imageUrl === secondCard.imageUrl) {
+        // Đúng
+        setMessage({ type: "success", text: "Vui mừng!" });
+        setTimeout(() => {
+          setCards((prev) => {
+            const updated = [...prev];
+            updated[firstIdx].matched = true;
+            updated[secondIdx].matched = true;
+            // Giữ flipped = true để hiển thị keyword
+            return updated;
+          });
+          setFlippedIndices([]);
+          setDisabled(false);
+        }, 500);
+      } else {
+        // Sai
+        setMessage({ type: "error", text: "Khóc!" });
+        setTimeout(() => {
+          setCards((prev) => {
+            const updated = [...prev];
+            updated[firstIdx].flipped = false;
+            updated[secondIdx].flipped = false;
+            return updated;
+          });
+          setFlippedIndices([]);
+          setDisabled(false);
+        }, 1000);
+      }
     }
   };
 
-  const showFeedback = (type: "correct" | "incorrect", msg: string) => {
-    setFeedback({ type, msg });
-    setTimeout(() => setFeedback(null), 1500);
+  // Kiểm tra hoàn thành
+  const allMatched = cards.every((card) => card.matched);
+
+  // Reset game
+  const resetGame = () => {
+    setCards(initializeCards());
+    setFlippedIndices([]);
+    setDisabled(false);
+    setMessage(null);
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="w-screen h-screen bg-sky-100 p-6 flex flex-col overflow-hidden relative font-sans">
-        <header className="h-16 flex items-center justify-center mb-6">
-          <h1 className="text-4xl font-extrabold text-blue-900 drop-shadow-sm">
-            Ghép Đôi Vui Vẻ
-          </h1>
-        </header>
-
-        <div className="flex-1 flex gap-8 min-h-0">
-          {/* SIDEBAR VỚI SCROLLBAR - Không còn lo bị clipping nhờ DragOverlay */}
-          <div className="w-96 h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 border-4 border-yellow-300 shadow-inner overflow-y-auto custom-scrollbar">
-            <div className="grid grid-cols-2 gap-4">
-              <AnimatePresence mode="popLayout">
-                {unansweredItems.map((item) => (
-                  <DraggableItem key={item.id} item={item} />
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* KHU VỰC CÁC CỘT NHÓM */}
-          <div className="flex-1 flex gap-6 overflow-x-auto pb-4 custom-scrollbar-h">
-            {MY_APP_DATA.groups.map((group) => (
-              <GroupColumn
-                key={group.id}
-                group={group}
-                items={groupedItems[group.id]}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* FEEDBACK OVERLAY */}
-        <AnimatePresence>
-          {feedback && (
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-4 flex flex-col items-center justify-center">
+      {/* Linh vật tạm (thông báo) */}
+      <div className="mb-6 h-16 flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          {message && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.5, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-100 px-10 py-6 rounded-full text-white text-3xl font-bold shadow-2xl ${
-                feedback.type === "correct" ? "bg-green-500" : "bg-red-500"
+              key={message.type}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className={`px-6 py-3 rounded-full text-white font-bold text-xl shadow-lg ${
+                message.type === "success" ? "bg-green-500" : "bg-red-500"
               }`}
             >
-              {feedback.msg}
+              {message.text}
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* DRAG OVERLAY: giải quyết vấn đề overflow clipping */}
-        <DragOverlay
-          dropAnimation={{
-            duration: 300,
-            easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
-            sideEffects: defaultDropAnimationSideEffects({
-              styles: { active: { opacity: "0" } },
-            }),
-          }}
-        >
-          {activeItem ? (
-            <ItemCard item={activeItem} style={{ cursor: "grabbing" }} />
-          ) : null}
-        </DragOverlay>
       </div>
 
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #bfdbfe; border-radius: 10px; }
-        .custom-scrollbar-h::-webkit-scrollbar { height: 10px; }
-        .custom-scrollbar-h::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 10px; }
-      `}</style>
-    </DndContext>
+      {/* Grid các thẻ */}
+      <div className="w-full max-w-4xl mx-auto">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-4 justify-items-center">
+          {cards.map((card, index) => (
+            <motion.div
+              key={card.id}
+              layout
+              initial={false}
+              animate={{ scale: card.matched ? 0.9 : 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="w-full aspect-square cursor-pointer"
+              onClick={() => handleCardClick(index)}
+            >
+              <motion.div
+                className="w-full h-full rounded-xl shadow-lg relative"
+                animate={{
+                  rotateY: card.flipped || card.matched ? 180 : 0,
+                }}
+                transition={{ duration: 0.4 }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {/* Mặt trước (úp) */}
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center backface-hidden"
+                  style={{ backfaceVisibility: "hidden" }}
+                  animate={{ opacity: card.flipped || card.matched ? 0 : 1 }}
+                >
+                  <span className="text-white text-2xl font-bold">?</span>
+                </motion.div>
+
+                {/* Mặt sau (hiện hình hoặc keyword) */}
+                <motion.div
+                  className="absolute inset-0 rounded-xl bg-white flex items-center justify-center p-2 backface-hidden"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)",
+                  }}
+                >
+                  {card.matched ? (
+                    <span className="text-2xl font-bold text-indigo-600">
+                      {card.keyword}
+                    </span>
+                  ) : (
+                    <img
+                      src={card.imageUrl}
+                      alt={card.keyword}
+                      className="w-full h-full object-contain"
+                    />
+                  )}
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal hoàn thành */}
+      <AnimatePresence>
+        {allMatched && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+            onClick={resetGame} // Click ra ngoài cũng reset (tùy chọn)
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 text-center shadow-2xl"
+              onClick={(e) => e.stopPropagation()} // Tránh đóng khi click vào modal
+            >
+              <h2 className="text-4xl font-bold text-green-600 mb-4">
+                Well-done!
+              </h2>
+              <button
+                onClick={resetGame}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                Chơi lại
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

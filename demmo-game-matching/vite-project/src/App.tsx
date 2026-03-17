@@ -1,11 +1,12 @@
 import "./App.css";
 import MatchingGameDemo from "./components/MatchingGameDemo";
+import { sampleCards } from "./data";
 
 function App() {
   return (
-    <>
-      <MatchingGameDemo />
-    </>
+    <div className="App">
+      <MatchingGameDemo cardsData={sampleCards} />
+    </div>
   );
 }
 
