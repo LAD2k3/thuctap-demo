@@ -1,219 +1,14 @@
-import React, { useState, useRef, useEffect } from "react";
-import {
-  motion,
-  AnimatePresence,
-  useAnimation,
-  type PanInfo,
-} from "framer-motion";
 import clsx from "clsx";
-
-// --- Định nghĩa kiểu dữ liệu ---
-interface Item {
-  id: string;
-  name: string;
-  svg: string;
-  groupId: string;
-}
-
-interface Group {
-  id: string;
-  name: string;
-  svg: string;
-}
-
-// --- Dữ liệu mẫu ---
-const MY_APP_DATA: { groups: Group[]; items: Item[] } =
-  import.meta.env.PROD && window.MY_APP_DATA
-    ? window.MY_APP_DATA
-    : {
-        groups: [
-          { id: "group1", name: "Trái cây", svg: "/svg/basket.svg" },
-          { id: "group2", name: "Rau củ", svg: "/svg/box.svg" },
-          { id: "group3", name: "Đồ dùng", svg: "/svg/backpack.svg" },
-        ],
-        items: [
-          {
-            id: "item1",
-            name: "Táo",
-            svg: "/svg/apple.svg",
-            groupId: "group1",
-          },
-          {
-            id: "item2",
-            name: "Chuối",
-            svg: "/svg/banana.svg",
-            groupId: "group1",
-          },
-          {
-            id: "item3",
-            name: "Cà rốt",
-            svg: "/svg/carrot.svg",
-            groupId: "group2",
-          },
-          {
-            id: "item4",
-            name: "Khoai tây",
-            svg: "/svg/potato.svg",
-            groupId: "group2",
-          },
-          {
-            id: "item5",
-            name: "Sách",
-            svg: "/svg/book.svg",
-            groupId: "group3",
-          },
-          { id: "item6", name: "Bút", svg: "/svg/pen.svg", groupId: "group3" },
-          {
-            id: "item7",
-            name: "Cam",
-            svg: "/svg/orange.svg",
-            groupId: "group1",
-          },
-          {
-            id: "item8",
-            name: "Dâu",
-            svg: "/svg/strawberry.svg",
-            groupId: "group1",
-          },
-        ],
-      };
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { MY_APP_DATA } from "../data";
+import type { Group, Item } from "../types/objects";
+import DraggableItem from "./DraggableItem";
+import GroupColumn from "./GroupColumn";
 
 const initialItems: Item[] = MY_APP_DATA.items;
 
 const groups: Group[] = MY_APP_DATA.groups;
-
-const layoutTransition = {
-  type: "spring" as const,
-  stiffness: 300,
-  damping: 30,
-};
-
-// --- Component Item có thể kéo ---
-interface DraggableItemProps {
-  item: Item;
-  onDragEnd: (
-    item: Item,
-    info: PanInfo,
-    ref: React.RefObject<HTMLDivElement>,
-  ) => Promise<boolean>;
-  containerRef: React.RefObject<HTMLDivElement>;
-  isDragging: boolean;
-  onDragStart: (itemId: string) => void;
-}
-
-const DraggableItem: React.FC<DraggableItemProps> = ({
-  item,
-  onDragEnd,
-  isDragging,
-  onDragStart,
-}) => {
-  const controls = useAnimation();
-  const itemRef = useRef<HTMLDivElement>(null);
-
-  const handleDragStart = () => {
-    onDragStart(item.id);
-  };
-
-  const handleDragEnd = async (
-    event: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo,
-  ) => {
-    const droppedOnGroup = await onDragEnd(item, info, itemRef);
-
-    if (!droppedOnGroup) {
-      controls.start({
-        x: 0,
-        y: 0,
-        transition: { ...layoutTransition, duration: 0.3 },
-      });
-    }
-  };
-
-  return (
-    <motion.div
-      ref={itemRef}
-      layout
-      layoutId={item.id}
-      drag
-      dragMomentum={false}
-      dragElastic={0.1}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      animate={controls}
-      whileDrag={{
-        scale: 1.1,
-        zIndex: 50,
-        boxShadow: "0px 10px 20px rgba(0,0,0,0.2)",
-        cursor: "grabbing",
-      }}
-      transition={layoutTransition}
-      className={clsx(
-        "w-20 h-20 flex items-center justify-center border-4 border-yellow-400 rounded-3xl bg-white shadow-lg select-none",
-        isDragging
-          ? "opacity-0"
-          : "opacity-100 cursor-grab active:cursor-grabbing",
-      )}
-      style={{ touchAction: "none" }}
-    >
-      <img
-        src={item.svg}
-        alt={item.name}
-        className="w-12 h-12 object-contain pointer-events-none"
-      />
-    </motion.div>
-  );
-};
-
-// --- Component Cột Group ---
-interface GroupColumnProps {
-  group: Group;
-  items: Item[];
-}
-
-const GroupColumn: React.FC<GroupColumnProps> = ({ group, items }) => {
-  return (
-    <div
-      data-group-id={group.id}
-      className="flex-shrink-0 w-64 h-full flex flex-col items-center bg-blue-50 rounded-t-3xl border-l-4 border-r-4 border-t-4 border-blue-200"
-    >
-      <div className="flex flex-col items-center p-4 border-b-4 border-blue-200 w-full bg-blue-100 rounded-t-3xl">
-        <div className="w-20 h-20 flex items-center justify-center">
-          <img
-            src={group.svg}
-            alt={group.name}
-            className="w-16 h-16 object-contain"
-          />
-        </div>
-        <h3 className="mt-2 text-xl font-bold text-blue-800 text-center">
-          {group.name}
-        </h3>
-      </div>
-
-      <div className="flex-1 w-full p-4 overflow-y-auto custom-scrollbar flex flex-col items-center gap-4">
-        <AnimatePresence>
-          {items.map((item) => (
-            <motion.div
-              key={item.id}
-              layoutId={item.id}
-              layout
-              transition={layoutTransition}
-              className="w-16 h-16 flex items-center justify-center border-4 border-green-400 bg-white rounded-2xl shadow"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-            >
-              <img
-                src={item.svg}
-                alt={item.name}
-                className="w-10 h-10 object-contain"
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-};
 
 // --- MAIN COMPONENT ---
 const MatchingGameDemo: React.FC = () => {
@@ -248,7 +43,7 @@ const MatchingGameDemo: React.FC = () => {
   const handleDragEnd = async (
     item: Item,
     info: PanInfo,
-    itemRef: React.RefObject<HTMLDivElement>,
+    _itemRef: React.RefObject<HTMLDivElement | null>,
   ): Promise<boolean> => {
     setDraggingItemId(null);
 
@@ -277,7 +72,7 @@ const MatchingGameDemo: React.FC = () => {
       setUnansweredItems((prev) => prev.filter((i) => i.id !== item.id));
       setGroupedItems((prev) => ({
         ...prev,
-        [matchedGroupId]: [...prev[matchedGroupId], item],
+        [matchedGroupId!]: [...prev[matchedGroupId!], item],
       }));
       showFeedback("correct", "Chính xác! 🎉");
       return true;
@@ -289,13 +84,14 @@ const MatchingGameDemo: React.FC = () => {
 
   return (
     <div
+      ref={sceneRef}
       className="w-screen h-screen overflow-hidden bg-sky-100 p-6 flex flex-col font-sans relative"
       style={{
         backgroundImage: "radial-gradient(#bbf7d0 1px, transparent 1px)",
         backgroundSize: "20px 20px",
       }}
     >
-      <header className="h-16 flex items-center justify-center mb-6 flex-shrink-0">
+      <header className="h-16 flex items-center justify-center mb-6 shrink-0">
         <h1 className="text-4xl font-extrabold text-blue-900 tracking-tight shadow-text">
           Ghép Đôi Vui Vẻ
         </h1>
@@ -305,8 +101,8 @@ const MatchingGameDemo: React.FC = () => {
         {/* Bên trái: grid 2 cột, scroll dọc */}
         <div
           ref={leftContainerRef}
-          // className="w-1/3 h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 border-4 border-yellow-300 shadow-inner overflow-y-auto"
-          className="w-1/3 h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 border-4 border-yellow-300 shadow-inner"
+          // className="w-96 h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 border-4 border-yellow-300 shadow-inner overflow-y-auto"
+          className="w-96 h-full bg-white/80 backdrop-blur-sm rounded-3xl p-6 border-4 border-yellow-300 shadow-inner"
         >
           <div className="grid grid-cols-2 gap-4 content-start relative">
             <AnimatePresence mode="popLayout">
@@ -315,6 +111,7 @@ const MatchingGameDemo: React.FC = () => {
                   key={item.id}
                   item={item}
                   onDragEnd={handleDragEnd}
+                  containerRef={sceneRef}
                   isDragging={draggingItemId === item.id}
                   onDragStart={handleDragStart}
                 />
