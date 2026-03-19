@@ -56,32 +56,28 @@ jobs:
         working-directory: ${{ matrix.project }}
         run: yarn install --immutable
 
-      # Conditional build step
       - name: Build project
         working-directory: ${{ matrix.project }}
+        shell: bash
         run: |
           if [ "${{ matrix.type }}" = "vite" ]; then
             yarn build
           else
             yarn build
-          fi
-
-      # Conditional packaging step for electron
-      - name: Package electron app
-        if: matrix.type == 'electron'
-        working-directory: ${{ matrix.project }}
-        run: |
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            yarn build:win
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            yarn build:mac
-          else
-            yarn build:linux
+            if [[ "$RUNNER_OS" == "Windows" ]]; then
+              yarn build:win
+            elif [[ "$RUNNER_OS" == "macOS" ]]; then
+              yarn build:mac
+            else
+              yarn build:linux
+            fi
           fi
 
       - name: Sanitize artifact name
-        id: sanitize
-        run: echo "ARTIFACT_NAME=build-${{ matrix.type }}-$(echo '${{ matrix.project }}' | tr '/' '-')" >> $GITHUB_ENV
+        shell: bash
+        run: |
+          ARTIFACT_NAME="build-${{ matrix.type }}-$(echo "${{ matrix.project }}" | tr '/' '-')"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
