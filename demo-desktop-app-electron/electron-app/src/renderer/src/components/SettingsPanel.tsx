@@ -50,8 +50,8 @@ export default function SettingsPanel({ open, onClose, hasProject }: Props) {
   }
 
   // Effective values (resolved)
-  const autoSaveMode = resolved.autoSave.mode
-  const intervalSec = resolved.autoSave.intervalSeconds
+  // const autoSaveMode = resolved.autoSave.mode
+  // const intervalSec = resolved.autoSave.intervalSeconds
   const prefillNames = resolved.prefillNames
 
   return (
