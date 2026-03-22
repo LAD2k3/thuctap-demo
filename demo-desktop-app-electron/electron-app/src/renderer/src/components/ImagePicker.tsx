@@ -6,7 +6,6 @@ import { useAssetUrl } from '../hooks/useAssetUrl'
 
 interface Props {
   projectDir: string
-  /** Entity id like "group-1" or "item-3" — image will be saved as <entityId>.<ext> */
   entityId: string
   value: string | null
   onChange: (relativePath: string | null) => void
@@ -23,18 +22,22 @@ export default function ImagePicker({
   size = 100
 }: Props) {
   const [loading, setLoading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const url = useAssetUrl(projectDir, value)
 
-  const handleClick = async () => {
-    const picked = await window.electronAPI.pickImage()
-    if (!picked) return
+  const importFile = async (filePath: string) => {
     setLoading(true)
     try {
-      const relativePath = await window.electronAPI.importImage(picked, projectDir, entityId)
+      const relativePath = await window.electronAPI.importImage(filePath, projectDir, entityId)
       onChange(relativePath)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleClick = async () => {
+    const picked = await window.electronAPI.pickImage()
+    if (picked) await importFile(picked)
   }
 
   const handleClear = (e: React.MouseEvent) => {
@@ -42,16 +45,44 @@ export default function ImagePicker({
     onChange(null)
   }
 
+  // ── Drag & drop support ──────────────────────────────────────────────────
+  const handleDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault()
+      setDragOver(true)
+    }
+  }
+  const handleDragLeave = () => setDragOver(false)
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'))
+    if (file) await importFile((file as File & { path: string }).path)
+  }
+
+  const isActive = dragOver && !loading
+
   return (
-    <Tooltip title={value ? 'Click to change image' : 'Click to add image'}>
+    <Tooltip
+      title={
+        value ? 'Click to change image · Drop image here' : 'Click to add image · Drop image here'
+      }
+    >
       <Box
         onClick={handleClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         sx={{
           width: size,
           height: size,
           borderRadius: 2,
           border: '2px dashed',
-          borderColor: value ? 'primary.dark' : 'rgba(255,255,255,0.15)',
+          borderColor: isActive
+            ? 'primary.main'
+            : value
+              ? 'primary.dark'
+              : 'rgba(255,255,255,0.15)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -59,13 +90,14 @@ export default function ImagePicker({
           cursor: 'pointer',
           overflow: 'hidden',
           position: 'relative',
-          background: value ? 'transparent' : 'rgba(255,255,255,0.02)',
+          background: isActive
+            ? 'rgba(110,231,183,0.08)'
+            : value
+              ? 'transparent'
+              : 'rgba(255,255,255,0.02)',
           transition: 'border-color 0.15s, background 0.15s',
           flexShrink: 0,
-          '&:hover': {
-            borderColor: 'primary.main',
-            background: 'rgba(110,231,183,0.04)'
-          }
+          '&:hover': { borderColor: 'primary.main', background: 'rgba(110,231,183,0.04)' }
         }}
       >
         {loading ? (
@@ -97,13 +129,16 @@ export default function ImagePicker({
         ) : (
           <>
             <AddPhotoAlternateIcon
-              sx={{ fontSize: size * 0.32, color: 'rgba(255,255,255,0.25)' }}
+              sx={{
+                fontSize: size * 0.32,
+                color: isActive ? 'primary.main' : 'rgba(255,255,255,0.25)'
+              }}
             />
             {label && (
               <Typography
                 variant="caption"
                 sx={{
-                  color: 'rgba(255,255,255,0.35)',
+                  color: isActive ? 'primary.main' : 'rgba(255,255,255,0.35)',
                   fontSize: '0.65rem',
                   mt: 0.5,
                   textAlign: 'center',
@@ -111,7 +146,7 @@ export default function ImagePicker({
                   lineHeight: 1.2
                 }}
               >
-                {label}
+                {isActive ? 'Drop!' : label}
               </Typography>
             )}
           </>

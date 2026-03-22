@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   Alert,
   Badge,
@@ -13,7 +13,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  TextField,
   Tooltip,
   Typography
 } from '@mui/material'
@@ -26,6 +25,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { GroupSortAppData, GroupSortGroup, GroupSortItem } from '../types'
 import { useSettings } from '../context/SettingsContext'
 import ImagePicker from './ImagePicker'
+import { DroppableZone, EmptyState, IndexBadge, NameField, SidebarTab } from './EditorShared'
 
 interface Props {
   appData: GroupSortAppData
@@ -35,93 +35,119 @@ interface Props {
 
 type Tab = 'groups' | 'items' | 'overview'
 
-// Ensure old projects without counters still work
-function normalizeData(data: GroupSortAppData): GroupSortAppData {
-  return {
-    ...data,
-    _groupCounter: data._groupCounter ?? 0,
-    _itemCounter: data._itemCounter ?? 0
-  }
+function normalize(d: GroupSortAppData): GroupSortAppData {
+  return { ...d, _groupCounter: d._groupCounter ?? 0, _itemCounter: d._itemCounter ?? 0 }
 }
 
-export default function GroupSortEditor({ appData: rawData, projectDir, onChange }: Props) {
-  const appData = normalizeData(rawData)
+export default function GroupSortEditor({ appData: raw, projectDir, onChange }: Props) {
+  const data = normalize(raw)
   const [tab, setTab] = useState<Tab>('groups')
   const { resolved } = useSettings()
+  const { groups, items } = data
 
-  const { groups, items } = appData
-
-  // ── Groups CRUD ──────────────────────────────────────────────────────────────
-  const addGroup = () => {
-    const counter = appData._groupCounter + 1
-    const id = `group-${counter}`
-    const newGroup: GroupSortGroup = {
-      id,
-      name: resolved.prefillNames ? `Group ${counter}` : '',
-      imagePath: null
-    }
-    onChange({ ...appData, _groupCounter: counter, groups: [...groups, newGroup] })
+  // ── CRUD helpers ──────────────────────────────────────────────────────────
+  const nextGroupId = () => {
+    const c = data._groupCounter + 1
+    return { id: `group-${c}`, counter: c }
   }
+  const nextItemId = () => {
+    const c = data._itemCounter + 1
+    return { id: `item-${c}`, counter: c }
+  }
+
+  const addGroup = useCallback(
+    (initialImage?: string) => {
+      const { id, counter } = nextGroupId()
+      const g: GroupSortGroup = {
+        id,
+        name: resolved.prefillNames ? `Group ${counter}` : '',
+        imagePath: initialImage ?? null
+      }
+      onChange({ ...data, _groupCounter: counter, groups: [...groups, g] })
+    },
+    [data, groups, resolved.prefillNames, onChange]
+  )
+
+  const addGroupFromDrop = useCallback(
+    async (filePath: string) => {
+      const { id, counter } = nextGroupId()
+      const imagePath = await window.electronAPI.importImage(filePath, projectDir, id)
+      const g: GroupSortGroup = {
+        id,
+        name: resolved.prefillNames ? `Group ${counter}` : '',
+        imagePath
+      }
+      onChange({ ...data, _groupCounter: counter, groups: [...groups, g] })
+    },
+    [data, groups, projectDir, resolved.prefillNames, onChange]
+  )
 
   const updateGroup = useCallback(
     (id: string, patch: Partial<GroupSortGroup>) => {
-      onChange({
-        ...appData,
-        groups: groups.map((g) => (g.id === id ? { ...g, ...patch } : g))
-      })
+      onChange({ ...data, groups: groups.map((g) => (g.id === id ? { ...g, ...patch } : g)) })
     },
-    [appData, groups, onChange]
+    [data, groups, onChange]
   )
 
   const deleteGroup = useCallback(
     (id: string) => {
       onChange({
-        ...appData,
+        ...data,
         groups: groups.filter((g) => g.id !== id),
-        items: items.map((item) => (item.groupId === id ? { ...item, groupId: '' } : item))
+        items: items.map((i) => (i.groupId === id ? { ...i, groupId: '' } : i))
       })
     },
-    [appData, groups, items, onChange]
+    [data, groups, items, onChange]
   )
 
-  // ── Items CRUD ───────────────────────────────────────────────────────────────
-  const addItem = (groupId?: string) => {
-    const counter = appData._itemCounter + 1
-    const id = `item-${counter}`
-    const targetGroupId = groupId || groups[0]?.id || ''
-    const newItem: GroupSortItem = {
-      id,
-      name: resolved.prefillNames ? `Item ${counter}` : '',
-      imagePath: null,
-      groupId: targetGroupId
-    }
-    onChange({ ...appData, _itemCounter: counter, items: [...items, newItem] })
-  }
+  const addItem = useCallback(
+    (groupId?: string, initialImage?: string) => {
+      const { id, counter } = nextItemId()
+      const i: GroupSortItem = {
+        id,
+        name: resolved.prefillNames ? `Item ${counter}` : '',
+        imagePath: initialImage ?? null,
+        groupId: groupId ?? groups[0]?.id ?? ''
+      }
+      onChange({ ...data, _itemCounter: counter, items: [...items, i] })
+    },
+    [data, items, groups, resolved.prefillNames, onChange]
+  )
+
+  const addItemFromDrop = useCallback(
+    async (filePath: string, groupId?: string) => {
+      const { id, counter } = nextItemId()
+      const imagePath = await window.electronAPI.importImage(filePath, projectDir, id)
+      const i: GroupSortItem = {
+        id,
+        name: resolved.prefillNames ? `Item ${counter}` : '',
+        imagePath,
+        groupId: groupId ?? groups[0]?.id ?? ''
+      }
+      onChange({ ...data, _itemCounter: counter, items: [...items, i] })
+    },
+    [data, items, groups, projectDir, resolved.prefillNames, onChange]
+  )
 
   const updateItem = useCallback(
     (id: string, patch: Partial<GroupSortItem>) => {
-      onChange({
-        ...appData,
-        items: items.map((i) => (i.id === id ? { ...i, ...patch } : i))
-      })
+      onChange({ ...data, items: items.map((i) => (i.id === id ? { ...i, ...patch } : i)) })
     },
-    [appData, items, onChange]
+    [data, items, onChange]
   )
 
   const deleteItem = useCallback(
     (id: string) => {
-      onChange({ ...appData, items: items.filter((i) => i.id !== id) })
+      onChange({ ...data, items: items.filter((i) => i.id !== id) })
     },
-    [appData, items, onChange]
+    [data, items, onChange]
   )
 
-  // ── Validation ───────────────────────────────────────────────────────────────
-  const unassignedItems = items.filter((i) => !i.groupId || !groups.find((g) => g.id === i.groupId))
-  const unnamedGroups = groups.filter((g) => !g.name.trim())
-  const unnamedItems = items.filter((i) => !i.name.trim())
-  const hasIssues =
-    unassignedItems.length > 0 || unnamedGroups.length > 0 || unnamedItems.length > 0
-
+  // ── Validation ────────────────────────────────────────────────────────────
+  const unassigned = items.filter((i) => !i.groupId || !groups.find((g) => g.id === i.groupId))
+  const unnamedG = groups.filter((g) => !g.name.trim())
+  const unnamedI = items.filter((i) => !i.name.trim())
+  const hasIssues = unassigned.length > 0 || unnamedG.length > 0 || unnamedI.length > 0
   const itemsPerGroup = groups.map((g) => ({
     group: g,
     count: items.filter((i) => i.groupId === g.id).length
@@ -129,7 +155,7 @@ export default function GroupSortEditor({ appData: rawData, projectDir, onChange
 
   return (
     <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* ── Left sidebar ── */}
+      {/* ── Sidebar ── */}
       <Box
         sx={{
           width: 220,
@@ -149,25 +175,22 @@ export default function GroupSortEditor({ appData: rawData, projectDir, onChange
         >
           Sections
         </Typography>
-
         <SidebarTab
           active={tab === 'groups'}
           onClick={() => setTab('groups')}
           icon={<CategoryIcon fontSize="small" />}
           label="Groups"
           badge={groups.length}
-          badgeColor={unnamedGroups.length > 0 ? 'error' : 'default'}
+          badgeColor={unnamedG.length > 0 ? 'error' : 'default'}
         />
-
         <SidebarTab
           active={tab === 'items'}
           onClick={() => setTab('items')}
           icon={<ExtensionIcon fontSize="small" />}
           label="Items"
           badge={items.length}
-          badgeColor={unassignedItems.length > 0 || unnamedItems.length > 0 ? 'error' : 'default'}
+          badgeColor={unassigned.length > 0 || unnamedI.length > 0 ? 'error' : 'default'}
         />
-
         <SidebarTab
           active={tab === 'overview'}
           onClick={() => setTab('overview')}
@@ -178,7 +201,6 @@ export default function GroupSortEditor({ appData: rawData, projectDir, onChange
         />
 
         <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.06)' }} />
-
         <Typography
           variant="overline"
           color="text.secondary"
@@ -186,7 +208,6 @@ export default function GroupSortEditor({ appData: rawData, projectDir, onChange
         >
           Distribution
         </Typography>
-
         {groups.length === 0 ? (
           <Typography variant="caption" color="text.disabled">
             No groups yet
@@ -225,26 +246,24 @@ export default function GroupSortEditor({ appData: rawData, projectDir, onChange
             ))}
           </Box>
         )}
-
-        {unassignedItems.length > 0 && (
+        {unassigned.length > 0 && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
             <WarningAmberIcon sx={{ fontSize: 14, color: 'warning.main' }} />
             <Typography variant="caption" color="warning.main">
-              {unassignedItems.length} unassigned
+              {unassigned.length} unassigned
             </Typography>
           </Box>
         )}
       </Box>
 
-      {/* ── Main content ── */}
+      {/* ── Main ── */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
         <Collapse in={hasIssues}>
-          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mb: 2, fontSize: '0.8rem' }}>
+          <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
             {[
-              unnamedGroups.length > 0 && `${unnamedGroups.length} group(s) missing a name`,
-              unnamedItems.length > 0 && `${unnamedItems.length} item(s) missing a name`,
-              unassignedItems.length > 0 &&
-                `${unassignedItems.length} item(s) not assigned to a group`
+              unnamedG.length > 0 && `${unnamedG.length} group(s) missing a name`,
+              unnamedI.length > 0 && `${unnamedI.length} item(s) missing a name`,
+              unassigned.length > 0 && `${unassigned.length} item(s) not assigned to a group`
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -256,89 +275,39 @@ export default function GroupSortEditor({ appData: rawData, projectDir, onChange
             groups={groups}
             projectDir={projectDir}
             onAdd={addGroup}
+            onAddFromDrop={addGroupFromDrop}
             onUpdate={updateGroup}
             onDelete={deleteGroup}
           />
         )}
-
         {tab === 'items' && (
           <ItemsTab
             items={items}
             groups={groups}
             projectDir={projectDir}
-            onAdd={() => addItem()}
+            onAdd={addItem}
+            onAddFromDrop={addItemFromDrop}
             onUpdate={updateItem}
             onDelete={deleteItem}
           />
         )}
-
         {tab === 'overview' && (
           <OverviewTab
             groups={groups}
             items={items}
             projectDir={projectDir}
             onAddGroup={addGroup}
+            onAddGroupFromDrop={addGroupFromDrop}
             onAddItem={addItem}
+            onAddItemFromDrop={addItemFromDrop}
             onUpdateGroup={updateGroup}
             onUpdateItem={updateItem}
             onDeleteGroup={deleteGroup}
             onDeleteItem={deleteItem}
+            unassigned={unassigned}
           />
         )}
       </Box>
-    </Box>
-  )
-}
-
-// ── Sidebar Tab ───────────────────────────────────────────────────────────────
-function SidebarTab({
-  active,
-  onClick,
-  icon,
-  label,
-  badge,
-  badgeColor
-}: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
-  badge: number
-  badgeColor: 'default' | 'error' | 'primary'
-}) {
-  return (
-    <Box
-      onClick={onClick}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 1.5,
-        py: 1,
-        borderRadius: 1.5,
-        cursor: 'pointer',
-        background: active ? 'rgba(110,231,183,0.1)' : 'transparent',
-        border: '1px solid',
-        borderColor: active ? 'primary.dark' : 'transparent',
-        color: active ? 'primary.main' : 'text.secondary',
-        transition: 'all 0.15s',
-        '&:hover': {
-          background: active ? 'rgba(110,231,183,0.1)' : 'rgba(255,255,255,0.04)',
-          color: active ? 'primary.main' : 'text.primary'
-        }
-      }}
-    >
-      {icon}
-      <Typography variant="body2" sx={{ flex: 1, fontWeight: active ? 600 : 400 }}>
-        {label}
-      </Typography>
-      <Badge
-        badgeContent={badge}
-        color={badgeColor === 'default' ? 'primary' : badgeColor}
-        max={99}
-      >
-        <span />
-      </Badge>
     </Box>
   )
 }
@@ -348,13 +317,15 @@ function GroupsTab({
   groups,
   projectDir,
   onAdd,
+  onAddFromDrop,
   onUpdate,
   onDelete
 }: {
   groups: GroupSortGroup[]
   projectDir: string
   onAdd: () => void
-  onUpdate: (id: string, patch: Partial<GroupSortGroup>) => void
+  onAddFromDrop: (fp: string) => void
+  onUpdate: (id: string, p: Partial<GroupSortGroup>) => void
   onDelete: (id: string) => void
 }) {
   return (
@@ -366,23 +337,24 @@ function GroupsTab({
             Each group is a sorting category. Items will be sorted into these groups.
           </Typography>
         </Box>
-        <Button startIcon={<AddIcon />} variant="contained" size="small" onClick={onAdd}>
-          Add Group
-        </Button>
+        <DroppableZone onFileDrop={onAddFromDrop}>
+          <Button startIcon={<AddIcon />} variant="contained" size="small" onClick={onAdd}>
+            Add Group
+          </Button>
+        </DroppableZone>
       </Box>
-
       {groups.length === 0 ? (
         <EmptyState
           icon={<CategoryIcon sx={{ fontSize: 48, opacity: 0.3 }} />}
           title="No groups yet"
-          description='Click "Add Group" to create your first sorting category.'
+          description='Click "Add Group" or drop an image on the button to create a category.'
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {groups.map((group, idx) => (
+          {groups.map((g, idx) => (
             <GroupCard
-              key={group.id}
-              group={group}
+              key={g.id}
+              group={g}
               index={idx}
               projectDir={projectDir}
               onUpdate={onUpdate}
@@ -407,9 +379,9 @@ function GroupCard({
   group: GroupSortGroup
   index: number
   projectDir: string
-  onUpdate: (id: string, patch: Partial<GroupSortGroup>) => void
-  onDelete: (id: string) => void
   autoFocus?: boolean
+  onUpdate: (id: string, p: Partial<GroupSortGroup>) => void
+  onDelete: (id: string) => void
 }) {
   return (
     <Paper
@@ -427,16 +399,14 @@ function GroupCard({
       }}
     >
       <IndexBadge index={index} color="primary" />
-
       <ImagePicker
         projectDir={projectDir}
         entityId={group.id}
         value={group.imagePath}
-        onChange={(path) => onUpdate(group.id, { imagePath: path })}
+        onChange={(p) => onUpdate(group.id, { imagePath: p })}
         label="Group image"
         size={72}
       />
-
       <NameField
         label="Group name"
         value={group.name}
@@ -444,7 +414,6 @@ function GroupCard({
         placeholder="e.g. Animals, Fruits, Colors…"
         autoFocus={autoFocus}
       />
-
       <Tooltip title="Delete group">
         <IconButton
           size="small"
@@ -464,6 +433,7 @@ function ItemsTab({
   groups,
   projectDir,
   onAdd,
+  onAddFromDrop,
   onUpdate,
   onDelete
 }: {
@@ -471,7 +441,8 @@ function ItemsTab({
   groups: GroupSortGroup[]
   projectDir: string
   onAdd: () => void
-  onUpdate: (id: string, patch: Partial<GroupSortItem>) => void
+  onAddFromDrop: (fp: string) => void
+  onUpdate: (id: string, p: Partial<GroupSortItem>) => void
   onDelete: (id: string) => void
 }) {
   return (
@@ -483,28 +454,28 @@ function ItemsTab({
             Each item belongs to one group. Students will drag these into the correct group.
           </Typography>
         </Box>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          size="small"
-          onClick={onAdd}
-          disabled={groups.length === 0}
-        >
-          Add Item
-        </Button>
+        <DroppableZone onFileDrop={onAddFromDrop}>
+          <Button
+            startIcon={<AddIcon />}
+            variant="contained"
+            size="small"
+            onClick={onAdd}
+            disabled={groups.length === 0}
+          >
+            Add Item
+          </Button>
+        </DroppableZone>
       </Box>
-
       {groups.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Create at least one group before adding items.
         </Alert>
       )}
-
       {items.length === 0 && groups.length > 0 ? (
         <EmptyState
           icon={<ExtensionIcon sx={{ fontSize: 48, opacity: 0.3 }} />}
           title="No items yet"
-          description='Click "Add Item" to create your first sortable card.'
+          description='Click "Add Item" or drop an image on the button to create a card.'
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -539,12 +510,11 @@ function ItemCard({
   index: number
   groups: GroupSortGroup[]
   projectDir: string
-  onUpdate: (id: string, patch: Partial<GroupSortItem>) => void
-  onDelete: (id: string) => void
   autoFocus?: boolean
+  onUpdate: (id: string, p: Partial<GroupSortItem>) => void
+  onDelete: (id: string) => void
 }) {
-  const assignedGroup = groups.find((g) => g.id === item.groupId)
-
+  const assigned = groups.find((g) => g.id === item.groupId)
   return (
     <Paper
       elevation={0}
@@ -554,26 +524,22 @@ function ItemCard({
         alignItems: 'center',
         gap: 2,
         border: '1px solid',
-        borderColor: !assignedGroup ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.06)',
+        borderColor: !assigned ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.06)',
         borderRadius: 2,
         background: '#1a1d27',
         transition: 'border-color 0.15s',
-        '&:hover': {
-          borderColor: !assignedGroup ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.12)'
-        }
+        '&:hover': { borderColor: !assigned ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.12)' }
       }}
     >
       <IndexBadge index={index} color="secondary" />
-
       <ImagePicker
         projectDir={projectDir}
         entityId={item.id}
         value={item.imagePath}
-        onChange={(path) => onUpdate(item.id, { imagePath: path })}
+        onChange={(p) => onUpdate(item.id, { imagePath: p })}
         label="Item image"
         size={72}
       />
-
       <NameField
         label="Item name"
         value={item.name}
@@ -581,32 +547,25 @@ function ItemCard({
         placeholder="e.g. Dog, Apple, Red…"
         autoFocus={autoFocus}
       />
-
-      <FormControl size="small" sx={{ minWidth: 160 }} error={!assignedGroup}>
+      <FormControl size="small" sx={{ minWidth: 160 }} error={!assigned}>
         <InputLabel>Belongs to group</InputLabel>
         <Select
           value={item.groupId}
           label="Belongs to group"
           onChange={(e) => onUpdate(item.id, { groupId: e.target.value })}
         >
-          {groups.length === 0 && (
-            <MenuItem value="" disabled>
-              No groups yet
-            </MenuItem>
-          )}
           {groups.map((g) => (
             <MenuItem key={g.id} value={g.id}>
-              {g.name || '(unnamed group)'}
+              {g.name || '(unnamed)'}
             </MenuItem>
           ))}
         </Select>
-        {!assignedGroup && (
+        {!assigned && (
           <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, fontSize: '0.65rem' }}>
             Unassigned
           </Typography>
         )}
       </FormControl>
-
       <Tooltip title="Delete item">
         <IconButton
           size="small"
@@ -626,19 +585,25 @@ function OverviewTab({
   items,
   projectDir,
   onAddGroup,
+  onAddGroupFromDrop,
   onAddItem,
+  onAddItemFromDrop,
   onUpdateGroup,
   onUpdateItem,
   onDeleteGroup,
-  onDeleteItem
+  onDeleteItem,
+  unassigned
 }: {
   groups: GroupSortGroup[]
   items: GroupSortItem[]
   projectDir: string
+  unassigned: GroupSortItem[]
   onAddGroup: () => void
-  onAddItem: (groupId?: string) => void
-  onUpdateGroup: (id: string, patch: Partial<GroupSortGroup>) => void
-  onUpdateItem: (id: string, patch: Partial<GroupSortItem>) => void
+  onAddGroupFromDrop: (fp: string) => void
+  onAddItem: (gid?: string) => void
+  onAddItemFromDrop: (fp: string, gid?: string) => void
+  onUpdateGroup: (id: string, p: Partial<GroupSortGroup>) => void
+  onUpdateItem: (id: string, p: Partial<GroupSortItem>) => void
   onDeleteGroup: (id: string) => void
   onDeleteItem: (id: string) => void
 }) {
@@ -648,22 +613,26 @@ function OverviewTab({
         <Box>
           <Typography variant="h6">Overview</Typography>
           <Typography variant="caption" color="text.secondary">
-            All groups with their items shown together.
+            All groups and their items at a glance.
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button startIcon={<AddIcon />} variant="outlined" size="small" onClick={onAddGroup}>
-            Add Group
-          </Button>
-          <Button
-            startIcon={<AddIcon />}
-            variant="contained"
-            size="small"
-            onClick={() => onAddItem()}
-            disabled={groups.length === 0}
-          >
-            Add Item
-          </Button>
+          <DroppableZone onFileDrop={onAddGroupFromDrop}>
+            <Button startIcon={<AddIcon />} variant="outlined" size="small" onClick={onAddGroup}>
+              Add Group
+            </Button>
+          </DroppableZone>
+          <DroppableZone onFileDrop={(fp) => onAddItemFromDrop(fp)}>
+            <Button
+              startIcon={<AddIcon />}
+              variant="contained"
+              size="small"
+              onClick={() => onAddItem()}
+              disabled={groups.length === 0}
+            >
+              Add Item
+            </Button>
+          </DroppableZone>
         </Box>
       </Box>
 
@@ -676,10 +645,9 @@ function OverviewTab({
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {groups.map((group, gIdx) => {
-            const groupItems = items.filter((i) => i.groupId === group.id)
+            const gItems = items.filter((i) => i.groupId === group.id)
             return (
               <Box key={group.id}>
-                {/* Group header */}
                 <Paper
                   elevation={0}
                   sx={{
@@ -694,40 +662,36 @@ function OverviewTab({
                   }}
                 >
                   <IndexBadge index={gIdx} color="primary" />
-
                   <ImagePicker
                     projectDir={projectDir}
                     entityId={group.id}
                     value={group.imagePath}
-                    onChange={(path) => onUpdateGroup(group.id, { imagePath: path })}
-                    label="Group image"
+                    onChange={(p) => onUpdateGroup(group.id, { imagePath: p })}
+                    label="Image"
                     size={56}
                   />
-
                   <NameField
                     label="Group name"
                     value={group.name}
                     onChange={(v) => onUpdateGroup(group.id, { name: v })}
                     placeholder="Group name…"
                   />
-
                   <Chip
-                    label={`${groupItems.length} item${groupItems.length !== 1 ? 's' : ''}`}
+                    label={`${gItems.length} item${gItems.length !== 1 ? 's' : ''}`}
                     size="small"
                     color="primary"
                     sx={{ height: 20, fontSize: '0.65rem' }}
                   />
-
-                  <Button
-                    startIcon={<AddIcon />}
-                    variant="contained"
-                    size="small"
-                    onClick={() => onAddItem(group.id)}
-                    sx={{ ml: 'auto' }}
-                  >
-                    Add Item
-                  </Button>
-
+                  <DroppableZone onFileDrop={(fp) => onAddItemFromDrop(fp, group.id)}>
+                    <Button
+                      startIcon={<AddIcon />}
+                      variant="contained"
+                      size="small"
+                      onClick={() => onAddItem(group.id)}
+                    >
+                      Add Item
+                    </Button>
+                  </DroppableZone>
                   <Tooltip title="Delete group">
                     <IconButton
                       size="small"
@@ -739,8 +703,7 @@ function OverviewTab({
                   </Tooltip>
                 </Paper>
 
-                {/* Items under this group */}
-                {groupItems.length === 0 ? (
+                {gItems.length === 0 ? (
                   <Box
                     sx={{
                       ml: 4,
@@ -751,11 +714,13 @@ function OverviewTab({
                       color: 'text.disabled'
                     }}
                   >
-                    <Typography variant="caption">No items in this group yet</Typography>
+                    <Typography variant="caption">
+                      No items yet — click Add Item above, or drop an image on it
+                    </Typography>
                   </Box>
                 ) : (
                   <Box sx={{ ml: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {groupItems.map((item, iIdx) => (
+                    {gItems.map((item, iIdx) => (
                       <Paper
                         key={item.id}
                         elevation={0}
@@ -766,29 +731,25 @@ function OverviewTab({
                           gap: 2,
                           border: '1px solid rgba(255,255,255,0.06)',
                           borderRadius: 2,
-                          background: '#1a1d27',
-                          '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
+                          background: '#1a1d27'
                         }}
                       >
                         <IndexBadge index={iIdx} color="secondary" />
-
                         <ImagePicker
                           projectDir={projectDir}
                           entityId={item.id}
                           value={item.imagePath}
-                          onChange={(path) => onUpdateItem(item.id, { imagePath: path })}
-                          label="Item image"
+                          onChange={(p) => onUpdateItem(item.id, { imagePath: p })}
+                          label="Image"
                           size={52}
                         />
-
                         <NameField
                           label="Item name"
                           value={item.name}
                           onChange={(v) => onUpdateItem(item.id, { name: v })}
                           placeholder="Item name…"
                         />
-
-                        <Tooltip title="Delete item">
+                        <Tooltip title="Delete">
                           <IconButton
                             size="small"
                             onClick={() => onDeleteItem(item.id)}
@@ -805,191 +766,74 @@ function OverviewTab({
             )
           })}
 
-          {/* Unassigned items */}
-          {(() => {
-            const unassigned = items.filter(
-              (i) => !i.groupId || !groups.find((g) => g.id === i.groupId)
-            )
-            if (unassigned.length === 0) return null
-            return (
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <WarningAmberIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-                  <Typography variant="body2" color="warning.main" sx={{ fontWeight: 600 }}>
-                    Unassigned items ({unassigned.length})
-                  </Typography>
-                </Box>
-                <Box sx={{ ml: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {unassigned.map((item, iIdx) => (
-                    <Paper
-                      key={item.id}
-                      elevation={0}
-                      sx={{
-                        p: 1.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        border: '1px solid rgba(251,191,36,0.3)',
-                        borderRadius: 2,
-                        background: '#1a1d27'
-                      }}
-                    >
-                      <IndexBadge index={iIdx} color="secondary" />
-
-                      <ImagePicker
-                        projectDir={projectDir}
-                        entityId={item.id}
-                        value={item.imagePath}
-                        onChange={(path) => onUpdateItem(item.id, { imagePath: path })}
-                        label="Item image"
-                        size={52}
-                      />
-
-                      <NameField
-                        label="Item name"
-                        value={item.name}
-                        onChange={(v) => onUpdateItem(item.id, { name: v })}
-                        placeholder="Item name…"
-                      />
-
-                      <FormControl size="small" sx={{ minWidth: 140 }} error>
-                        <InputLabel>Assign to group</InputLabel>
-                        <Select
-                          value=""
-                          label="Assign to group"
-                          onChange={(e) => onUpdateItem(item.id, { groupId: e.target.value })}
-                        >
-                          {groups.map((g) => (
-                            <MenuItem key={g.id} value={g.id}>
-                              {g.name || '(unnamed)'}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-
-                      <Tooltip title="Delete item">
-                        <IconButton
-                          size="small"
-                          onClick={() => onDeleteItem(item.id)}
-                          sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Paper>
-                  ))}
-                </Box>
+          {unassigned.length > 0 && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <WarningAmberIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                <Typography variant="body2" color="warning.main" sx={{ fontWeight: 600 }}>
+                  Unassigned items ({unassigned.length})
+                </Typography>
               </Box>
-            )
-          })()}
+              <Box sx={{ ml: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {unassigned.map((item, iIdx) => (
+                  <Paper
+                    key={item.id}
+                    elevation={0}
+                    sx={{
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      border: '1px solid rgba(251,191,36,0.3)',
+                      borderRadius: 2,
+                      background: '#1a1d27'
+                    }}
+                  >
+                    <IndexBadge index={iIdx} color="warning" />
+                    <ImagePicker
+                      projectDir={projectDir}
+                      entityId={item.id}
+                      value={item.imagePath}
+                      onChange={(p) => onUpdateItem(item.id, { imagePath: p })}
+                      label="Image"
+                      size={52}
+                    />
+                    <NameField
+                      label="Item name"
+                      value={item.name}
+                      onChange={(v) => onUpdateItem(item.id, { name: v })}
+                      placeholder="Item name…"
+                    />
+                    <FormControl size="small" sx={{ minWidth: 140 }} error>
+                      <InputLabel>Assign to group</InputLabel>
+                      <Select
+                        value=""
+                        label="Assign to group"
+                        onChange={(e) => onUpdateItem(item.id, { groupId: e.target.value })}
+                      >
+                        {groups.map((g) => (
+                          <MenuItem key={g.id} value={g.id}>
+                            {g.name || '(unnamed)'}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() => onDeleteItem(item.id)}
+                        sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Paper>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
       )}
-    </Box>
-  )
-}
-
-// ── Shared sub-components ─────────────────────────────────────────────────────
-
-function IndexBadge({ index, color }: { index: number; color: 'primary' | 'secondary' }) {
-  return (
-    <Typography
-      sx={{
-        width: 26,
-        height: 26,
-        borderRadius: '50%',
-        background: color === 'primary' ? 'rgba(110,231,183,0.12)' : 'rgba(167,139,250,0.12)',
-        color: color === 'primary' ? 'primary.main' : 'secondary.main',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '0.72rem',
-        fontWeight: 700,
-        flexShrink: 0
-      }}
-    >
-      {index + 1}
-    </Typography>
-  )
-}
-
-/**
- * Name field that auto-selects its text when it first mounts with a prefilled value.
- * autoFocus=true means this is the newest card — select all so user can type over it.
- */
-function NameField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  autoFocus
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  autoFocus?: boolean
-}) {
-  const didSelect = useRef(false)
-
-  const handleRef = useCallback(
-    (input: HTMLInputElement | null) => {
-      if (input && autoFocus && !didSelect.current) {
-        didSelect.current = true
-        // Small delay to let MUI finish mounting
-        setTimeout(() => {
-          input.focus()
-          input.select()
-        }, 30)
-      }
-    },
-    [autoFocus]
-  )
-
-  return (
-    <TextField
-      label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      sx={{ flex: 1 }}
-      error={!value.trim()}
-      helperText={!value.trim() ? 'Name is required' : ''}
-      inputRef={handleRef}
-    />
-  )
-}
-
-// ── Empty state ───────────────────────────────────────────────────────────────
-function EmptyState({
-  icon,
-  title,
-  description
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        py: 8,
-        gap: 1.5,
-        color: 'text.disabled',
-        border: '1px dashed rgba(255,255,255,0.08)',
-        borderRadius: 3
-      }}
-    >
-      {icon}
-      <Typography variant="h6" sx={{ opacity: 0.5 }}>
-        {title}
-      </Typography>
-      <Typography variant="body2" sx={{ opacity: 0.4, textAlign: 'center', maxWidth: 320 }}>
-        {description}
-      </Typography>
     </Box>
   )
 }

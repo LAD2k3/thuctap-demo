@@ -23,16 +23,39 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
+import SaveAsIcon from '@mui/icons-material/SaveAs'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import FolderZipIcon from '@mui/icons-material/FolderZip'
 import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove'
 import EditIcon from '@mui/icons-material/Edit'
 import SettingsIcon from '@mui/icons-material/Settings'
-import { ProjectFile, ProjectState } from '../types'
+import UndoIcon from '@mui/icons-material/Undo'
+import RedoIcon from '@mui/icons-material/Redo'
+import { AnyAppData, GameTemplate, ProjectFile, ProjectMeta } from '../types'
 import GroupSortEditor from '../components/GroupSortEditor'
+import QuizEditor from '../components/QuizEditor'
 import SettingsPanel from '../components/SettingsPanel'
 import { useSettings } from '../context/SettingsContext'
+import { useHistory } from '../hooks/useHistory'
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function buildTitle(templateName: string, projectName: string, filePath: string) {
+  return `[${templateName}] ${projectName} — ${filePath}`
+}
+
+function buildProjectFile(meta: ProjectMeta, appData: AnyAppData): ProjectFile {
+  return {
+    version: meta.name ? '1.0.0' : '1.0.0', // always same, could track version
+    templateId: meta.templateId,
+    name: meta.name,
+    createdAt: meta.createdAt,
+    updatedAt: new Date().toISOString(),
+    settings: meta.settings,
+    appData
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function ProjectPage() {
   const { templateId } = useParams<{ templateId: string }>()
   const location = useLocation()
@@ -45,163 +68,222 @@ export default function ProjectPage() {
     data: ProjectFile
   } | null
 
-  const [project, setProject] = useState<ProjectState | null>(() => {
-    if (!locationState) return null
-    return {
-      filePath: locationState.filePath,
-      projectDir: locationState.projectDir,
-      isDirty: false,
-      data: locationState.data
-    }
-  })
+  // Split project state: meta (file location, name) is separate from app data (game content)
+  const [meta, setMeta] = useState<ProjectMeta | null>(() =>
+    locationState
+      ? {
+          filePath: locationState.filePath,
+          projectDir: locationState.projectDir,
+          templateId: locationState.data.templateId,
+          name: locationState.data.name,
+          createdAt: locationState.data.createdAt,
+          updatedAt: locationState.data.updatedAt,
+          settings: locationState.data.settings
+        }
+      : null
+  )
+  const [isDirty, setIsDirty] = useState(false)
+  const [templates, setTemplates] = useState<GameTemplate[]>([])
 
-  // Wire per-project settings into context on mount/unmount
+  // History tracks only the game data, not meta
+  const history = useHistory<AnyAppData>(locationState?.data.appData ?? ({} as AnyAppData))
+
+  // Load templates list for display names
   useEffect(() => {
-    if (locationState?.data?.settings) {
-      setProjectSettings(locationState.data.settings)
-    }
+    window.electronAPI.getTemplates().then(setTemplates)
+  }, [])
+
+  // Sync project settings to context
+  useEffect(() => {
+    setProjectSettings(locationState?.data?.settings ?? null)
     return () => setProjectSettings(null)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep project settings in context when they change
   useEffect(() => {
-    if (project?.data.settings !== undefined) {
-      setProjectSettings(project.data.settings ?? null)
-    }
-  }, [project?.data.settings, setProjectSettings])
+    if (meta?.settings !== undefined) setProjectSettings(meta.settings ?? null)
+  }, [meta?.settings, setProjectSettings])
+
+  // Update window title whenever meta or appData changes
+  useEffect(() => {
+    if (!meta || !templateId) return
+    const tName = templates.find((t) => t.id === templateId)?.name ?? templateId
+    const title = buildTitle(tName, meta.name, meta.filePath)
+    document.title = title
+    window.electronAPI.setTitle(title)
+  }, [meta, templateId, templates])
 
   const [snack, setSnack] = useState<{
     msg: string
     severity: 'success' | 'error' | 'info'
   } | null>(null)
-  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null)
+  const [exportAnchor, setExportAnchor] = useState<null | HTMLElement>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameValue, setRenameValue] = useState('')
-  const [backConfirmOpen, setBackConfirmOpen] = useState(false)
+  const [backConfirm, setBackConfirm] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [saveAsConfirmFolder, setSaveAsConfirmFolder] = useState<string | null>(null)
 
-  const showSnack = (msg: string, severity: 'success' | 'error' | 'info' = 'success') => {
+  const showSnack = (msg: string, severity: 'success' | 'error' | 'info' = 'success') =>
     setSnack({ msg, severity })
-  }
 
-  // ── Core save ──────────────────────────────────────────────────────────────
-  const doSave = useCallback(async (state: ProjectState) => {
-    await window.electronAPI.saveProject(state.data, state.filePath)
-    setProject((prev) => (prev ? { ...prev, isDirty: false } : prev))
+  // ── Save ─────────────────────────────────────────────────────────────────
+  const doSave = useCallback(async (currentMeta: ProjectMeta, appData: AnyAppData) => {
+    const file = buildProjectFile(currentMeta, appData)
+    await window.electronAPI.saveProject(file, currentMeta.filePath)
+    setIsDirty(false)
   }, [])
 
-  // ── Auto-save logic ────────────────────────────────────────────────────────
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const intervalTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const projectRef = useRef<ProjectState | null>(project)
-  projectRef.current = project
+  // ── Auto-save ─────────────────────────────────────────────────────────────
+  const onEditTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const metaRef = useRef(meta)
+  metaRef.current = meta
+  const appDataRef = useRef(history.present)
+  appDataRef.current = history.present
+  const isDirtyRef = useRef(isDirty)
+  isDirtyRef.current = isDirty
 
-  // Interval-based auto-save
   useEffect(() => {
-    if (intervalTimerRef.current) clearInterval(intervalTimerRef.current)
+    if (intervalRef.current) clearInterval(intervalRef.current)
     if (resolved.autoSave.mode === 'interval') {
-      intervalTimerRef.current = setInterval(() => {
-        const p = projectRef.current
-        if (p?.isDirty) doSave(p).catch(() => {})
+      intervalRef.current = setInterval(() => {
+        if (isDirtyRef.current && metaRef.current)
+          doSave(metaRef.current, appDataRef.current).catch(() => {})
       }, resolved.autoSave.intervalSeconds * 1000)
     }
     return () => {
-      if (intervalTimerRef.current) clearInterval(intervalTimerRef.current)
+      if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [resolved.autoSave.mode, resolved.autoSave.intervalSeconds, doSave])
 
-  const triggerOnEditSave = useCallback(
-    (state: ProjectState) => {
-      if (resolved.autoSave.mode !== 'on-edit') return
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-      autoSaveTimerRef.current = setTimeout(() => {
-        doSave(state).catch(() => {})
-      }, 1000)
+  // ── App data change (from editor) ─────────────────────────────────────────
+  const handleAppDataChange = useCallback(
+    (newData: AnyAppData) => {
+      history.push(newData)
+      setIsDirty(true)
+      if (resolved.autoSave.mode === 'on-edit') {
+        if (onEditTimerRef.current) clearTimeout(onEditTimerRef.current)
+        onEditTimerRef.current = setTimeout(() => {
+          if (metaRef.current) doSave(metaRef.current, newData).catch(() => {})
+        }, 1000)
+      }
     },
-    [resolved.autoSave.mode, doSave]
-  )
-
-  // ── App data update ────────────────────────────────────────────────────────
-  const updateAppData = useCallback(
-    (appData: ProjectFile['appData']) => {
-      setProject((prev) => {
-        if (!prev) return prev
-        const next: ProjectState = {
-          ...prev,
-          isDirty: true,
-          data: {
-            ...prev.data,
-            appData,
-            updatedAt: new Date().toISOString()
-          }
-        }
-        triggerOnEditSave(next)
-        return next
-      })
-    },
-    [triggerOnEditSave]
+    [history, resolved.autoSave.mode, doSave]
   )
 
   const handleSave = async () => {
-    if (!project) return
+    if (!meta) return
     try {
-      await doSave(project)
+      await doSave(meta, history.present)
       showSnack('Project saved!')
     } catch (e) {
       showSnack(`Save failed: ${e}`, 'error')
     }
   }
 
+  // ── Save As ───────────────────────────────────────────────────────────────
+  const handleSaveAs = async () => {
+    if (!meta) return
+    const result = await window.electronAPI.saveProjectAs({
+      projectData: buildProjectFile(meta, history.present),
+      oldProjectDir: meta.projectDir
+    })
+    if (!result) return
+    if (result.status === 'has-project' || result.status === 'non-empty') {
+      setSaveAsConfirmFolder(result.status === 'has-project' ? result.folder : null)
+      if (result.status === 'non-empty') {
+        showSnack('That folder already has files — choose an empty one.', 'info')
+        return
+      }
+    }
+    await performSaveAs(result.folder)
+  }
+
+  const performSaveAs = async (folder: string) => {
+    if (!meta) return
+    try {
+      const newLoc = await window.electronAPI.doSaveAs({
+        projectData: buildProjectFile(meta, history.present),
+        oldProjectDir: meta.projectDir,
+        newFolder: folder
+      })
+      setMeta((prev) =>
+        prev ? { ...prev, filePath: newLoc.filePath, projectDir: newLoc.projectDir } : prev
+      )
+      setIsDirty(false)
+      setSaveAsConfirmFolder(null)
+      showSnack(`Saved to: ${newLoc.projectDir}`)
+    } catch (e) {
+      showSnack(`Save As failed: ${e}`, 'error')
+    }
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = async (mode: 'folder' | 'zip') => {
-    setExportMenuAnchor(null)
-    if (!project) return
+    setExportAnchor(null)
+    if (!meta) return
     try {
       const result = await window.electronAPI.exportProject({
-        templateId: project.data.templateId,
-        appData: project.data.appData,
-        projectDir: project.projectDir,
+        templateId: meta.templateId,
+        appData: history.present,
+        projectDir: meta.projectDir,
         mode
       })
       if (result.canceled) return
-      showSnack(`Exported successfully to: ${result.path}`)
+      showSnack(`Exported to: ${result.path}`)
     } catch (e) {
       showSnack(`Export failed: ${e}`, 'error')
     }
   }
 
+  // ── Rename ────────────────────────────────────────────────────────────────
   const handleRename = async () => {
-    if (!project || !renameValue.trim()) return
-    const updated: ProjectState = {
-      ...project,
-      isDirty: true,
-      data: { ...project.data, name: renameValue.trim() }
-    }
-    setProject(updated)
+    if (!meta || !renameValue.trim()) return
+    const updated = { ...meta, name: renameValue.trim() }
+    setMeta(updated)
     setRenameOpen(false)
     try {
-      await doSave(updated)
+      await doSave(updated, history.present)
     } catch {
-      // will be saved next time
+      /* saved later */
     }
   }
 
-  const handleBack = () => {
-    if (project?.isDirty) {
-      setBackConfirmOpen(true)
-    } else {
-      navigate('/')
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey
+      if (ctrl && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        history.undo()
+      }
+      if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        history.redo()
+      }
+      if (ctrl && e.key === 's' && !e.shiftKey) {
+        e.preventDefault()
+        handleSave()
+      }
+      if (ctrl && e.key === 's' && e.shiftKey) {
+        e.preventDefault()
+        handleSaveAs()
+      }
     }
-  }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [history, handleSave, handleSaveAs])
 
-  if (!project || !templateId) {
+  if (!meta || !templateId) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography color="error">No project data found. Please go back and try again.</Typography>
+        <Typography color="error">No project data. Go back and try again.</Typography>
         <Button onClick={() => navigate('/')}>Go Home</Button>
       </Box>
     )
   }
 
+  const templateName = templates.find((t) => t.id === templateId)?.name ?? templateId
   const autoSaveLabel =
     resolved.autoSave.mode === 'off'
       ? null
@@ -225,10 +307,19 @@ export default function ProjectPage() {
         }}
       >
         <Tooltip title="Back to home">
-          <IconButton size="small" onClick={handleBack}>
+          <IconButton size="small" onClick={() => (isDirty ? setBackConfirm(true) : navigate('/'))}>
             <ArrowBackIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+
+        {/* Game type badge */}
+        <Chip
+          label={templateName}
+          size="small"
+          color="primary"
+          variant="outlined"
+          sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }}
+        />
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
           <Typography
@@ -241,21 +332,21 @@ export default function ProjectPage() {
               whiteSpace: 'nowrap'
             }}
           >
-            {project.data.name}
+            {meta.name}
           </Typography>
           <Tooltip title="Rename project">
             <IconButton
               size="small"
               sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
               onClick={() => {
-                setRenameValue(project.data.name)
+                setRenameValue(meta.name)
                 setRenameOpen(true)
               }}
             >
               <EditIcon sx={{ fontSize: 14 }} />
             </IconButton>
           </Tooltip>
-          {project.isDirty && (
+          {isDirty && (
             <Chip
               label="unsaved"
               size="small"
@@ -263,77 +354,133 @@ export default function ProjectPage() {
               sx={{ height: 18, fontSize: '0.65rem' }}
             />
           )}
-          {autoSaveLabel && !project.isDirty && (
+          {autoSaveLabel && !isDirty && (
             <Chip
               label={autoSaveLabel}
               size="small"
-              sx={{ height: 18, fontSize: '0.65rem', opacity: 0.5 }}
+              sx={{ height: 18, fontSize: '0.65rem', opacity: 0.4 }}
             />
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          <Tooltip title="Undo (Ctrl+Z)">
+            <span>
+              <IconButton size="small" onClick={history.undo} disabled={!history.canUndo}>
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Redo (Ctrl+Y)">
+            <span>
+              <IconButton size="small" onClick={history.redo} disabled={!history.canRedo}>
+                <RedoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
           <Tooltip title="Settings">
             <IconButton size="small" onClick={() => setSettingsOpen(true)}>
               <SettingsIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-
           <Button
             size="small"
             startIcon={<SaveIcon />}
-            variant={project.isDirty ? 'contained' : 'outlined'}
-            color={project.isDirty ? 'primary' : 'inherit'}
+            variant={isDirty ? 'contained' : 'outlined'}
+            color={isDirty ? 'primary' : 'inherit'}
             onClick={handleSave}
           >
             Save
           </Button>
-
+          <Tooltip title="Save As (Ctrl+Shift+S)">
+            <IconButton size="small" onClick={handleSaveAs}>
+              <SaveAsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Button
             size="small"
             startIcon={<FileDownloadIcon />}
             variant="outlined"
-            onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+            onClick={(e) => setExportAnchor(e.currentTarget)}
           >
             Export
           </Button>
         </Box>
       </Box>
 
-      {/* ── Editor area ── */}
+      {/* ── Editor ── */}
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {templateId === 'group-sort' && (
           <GroupSortEditor
-            appData={project.data.appData as any}
-            projectDir={project.projectDir}
-            onChange={updateAppData}
+            appData={history.present as any}
+            projectDir={meta.projectDir}
+            onChange={handleAppDataChange}
+          />
+        )}
+        {templateId === 'quiz' && (
+          <QuizEditor
+            appData={history.present as any}
+            projectDir={meta.projectDir}
+            onChange={handleAppDataChange}
           />
         )}
       </Box>
 
       {/* ── Settings panel ── */}
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} hasProject={true} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} hasProject />
 
       {/* ── Export menu ── */}
       <Menu
-        anchorEl={exportMenuAnchor}
-        open={Boolean(exportMenuAnchor)}
-        onClose={() => setExportMenuAnchor(null)}
+        anchorEl={exportAnchor}
+        open={Boolean(exportAnchor)}
+        onClose={() => setExportAnchor(null)}
       >
         <MenuItem onClick={() => handleExport('folder')}>
           <ListItemIcon>
             <DriveFileMoveIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="Export to folder" secondary="Copies index.html + assets" />
+          <ListItemText primary="Export to folder" secondary="Copies game + assets" />
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => handleExport('zip')}>
           <ListItemIcon>
             <FolderZipIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="Export as ZIP" secondary="Single archive file" />
+          <ListItemText primary="Export as ZIP" secondary="Single archive" />
         </MenuItem>
       </Menu>
+
+      {/* ── Save As overwrite confirm ── */}
+      <Dialog
+        open={!!saveAsConfirmFolder}
+        onClose={() => setSaveAsConfirmFolder(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Overwrite existing project?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            That folder already contains a project. This will overwrite it.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveAsConfirmFolder(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => {
+              const f = saveAsConfirmFolder!
+              setSaveAsConfirmFolder(null)
+              performSaveAs(f)
+            }}
+          >
+            Overwrite
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Rename dialog ── */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
@@ -357,16 +504,16 @@ export default function ProjectPage() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Back confirm dialog ── */}
-      <Dialog open={backConfirmOpen} onClose={() => setBackConfirmOpen(false)}>
+      {/* ── Back confirm ── */}
+      <Dialog open={backConfirm} onClose={() => setBackConfirm(false)}>
         <DialogTitle>Unsaved changes</DialogTitle>
         <DialogContent>
-          <DialogContentText>You have unsaved changes. Save before leaving?</DialogContentText>
+          <DialogContentText>Save before leaving?</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button
             onClick={() => {
-              setBackConfirmOpen(false)
+              setBackConfirm(false)
               navigate('/')
             }}
             color="error"
@@ -375,7 +522,7 @@ export default function ProjectPage() {
           </Button>
           <Button
             onClick={async () => {
-              setBackConfirmOpen(false)
+              setBackConfirm(false)
               await handleSave()
               navigate('/')
             }}

@@ -3,13 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <title>Minigame Builder</title>
-    <!-- file: added to img-src so local images loaded via file:// resolve correctly -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:;"
     />
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        background: #0f1117;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.35s ease;
+      }
+      #splash.hiding {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .splash-ring {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(110, 231, 183, 0.18);
+        border-top-color: #6ee7b7;
+        border-radius: 50%;
+        animation: spin 0.75s linear infinite;
+      }
+      .splash-wordmark {
+        margin-top: 18px;
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: rgba(110, 231, 183, 0.7);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash">
+      <div class="splash-ring"></div>
+      <div class="splash-wordmark">MINIGAME BUILDER</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

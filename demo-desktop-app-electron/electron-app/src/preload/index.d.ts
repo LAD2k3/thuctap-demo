@@ -1,25 +1,26 @@
 export interface ElectronAPI {
-  // Templates
   getTemplates: () => Promise<import('../renderer/src/types').GameTemplate[]>
-
-  // Folder / project management
   checkFolderStatus: (folderPath: string) => Promise<'empty' | 'has-project' | 'non-empty'>
   chooseProjectFolder: () => Promise<string | null>
   openProjectFile: (
     filePath?: string
   ) => Promise<{ filePath: string; data: import('../renderer/src/types').ProjectFile } | null>
   saveProject: (data: object, projectPath: string) => Promise<boolean>
-
-  // Assets
+  saveProjectAs: (opts: {
+    projectData: object
+    oldProjectDir: string
+  }) => Promise<{ folder: string; status: 'empty' | 'has-project' | 'non-empty' } | null>
+  doSaveAs: (opts: {
+    projectData: object
+    oldProjectDir: string
+    newFolder: string
+  }) => Promise<{ filePath: string; projectDir: string }>
   pickImage: () => Promise<string | null>
   importImage: (sourcePath: string, projectDir: string, desiredName: string) => Promise<string>
   resolveAssetUrl: (projectDir: string, relativePath: string) => Promise<string>
-
-  // Settings
   settingsReadGlobal: () => Promise<object>
   settingsWriteGlobal: (data: object) => Promise<boolean>
-
-  // Export
+  setTitle: (title: string) => Promise<void>
   exportProject: (opts: {
     templateId: string
     appData: object

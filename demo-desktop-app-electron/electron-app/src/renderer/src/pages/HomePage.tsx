@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -15,25 +15,66 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Collapse,
+  IconButton,
+  Tooltip
 } from '@mui/material'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import AddIcon from '@mui/icons-material/Add'
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports'
 import FolderOffIcon from '@mui/icons-material/FolderOff'
-import { GameTemplate } from '../types'
+import HistoryIcon from '@mui/icons-material/History'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import { GameTemplate, RecentProject } from '../types'
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`
+  const mos = Math.floor(days / 30)
+  if (mos < 12) return `${mos} month${mos > 1 ? 's' : ''} ago`
+  return `${Math.floor(mos / 12)} year${Math.floor(mos / 12) > 1 ? 's' : ''} ago`
+}
+
+async function readRecentProjects(): Promise<RecentProject[]> {
+  const s = (await window.electronAPI.settingsReadGlobal()) as Record<string, unknown>
+  return (s.recentProjects as RecentProject[] | undefined) ?? []
+}
+
+async function writeRecentProjects(list: RecentProject[]): Promise<void> {
+  const s = (await window.electronAPI.settingsReadGlobal()) as Record<string, unknown>
+  await window.electronAPI.settingsWriteGlobal({ ...s, recentProjects: list })
+}
+
+async function addRecentProject(entry: RecentProject) {
+  const existing = await readRecentProjects()
+  const filtered = existing.filter((r) => r.filePath !== entry.filePath)
+  await writeRecentProjects([entry, ...filtered].slice(0, 10))
+}
 
 type FolderDialogState =
   | { type: 'non-empty'; folder: string; template: GameTemplate }
   | { type: 'has-project'; folder: string; template: GameTemplate }
   | null
 
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const navigate = useNavigate()
   const [templates, setTemplates] = useState<GameTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [folderDialog, setFolderDialog] = useState<FolderDialogState>(null)
+  const [folderDlg, setFolderDlg] = useState<FolderDialogState>(null)
+  const [recent, setRecent] = useState<RecentProject[]>([])
+  const [showRecent, setShowRecent] = useState(false)
 
   useEffect(() => {
     window.electronAPI
@@ -41,42 +82,55 @@ export default function HomePage() {
       .then(setTemplates)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
+    readRecentProjects().then(setRecent)
   }, [])
+
+  const openProject = useCallback(
+    async (filePath: string, data: ReturnType<typeof JSON.parse>) => {
+      const projectDir = filePath.replace(/[/\\][^/\\]+$/, '')
+      await addRecentProject({
+        filePath,
+        projectDir,
+        templateId: data.templateId,
+        templateName: templates.find((t) => t.id === data.templateId)?.name ?? data.templateId,
+        projectName: data.name,
+        lastOpened: new Date().toISOString()
+      })
+      navigate(`/project/${data.templateId}`, { state: { filePath, projectDir, data } })
+    },
+    [templates, navigate]
+  )
 
   const handleOpenExisting = async () => {
     const result = await window.electronAPI.openProjectFile()
     if (!result) return
-    const { filePath, data } = result
-    const projectDir = filePath.replace(/[/\\][^/\\]+$/, '')
-    navigate(`/project/${data.templateId}`, {
-      state: { filePath, projectDir, data }
-    })
+    await openProject(result.filePath, result.data)
   }
 
   const handleNewProject = async (template: GameTemplate) => {
     const folder = await window.electronAPI.chooseProjectFolder()
     if (!folder) return
-
     const status = await window.electronAPI.checkFolderStatus(folder)
-
     if (status === 'has-project') {
-      setFolderDialog({ type: 'has-project', folder, template })
+      setFolderDlg({ type: 'has-project', folder, template })
       return
     }
-
     if (status === 'non-empty') {
-      setFolderDialog({ type: 'non-empty', folder, template })
+      setFolderDlg({ type: 'non-empty', folder, template })
       return
     }
-
-    // empty — proceed
     await createNewProject(folder, template)
   }
 
   const createNewProject = async (folder: string, template: GameTemplate) => {
     const projectPath = `${folder}/project.mgproj`
     const now = new Date().toISOString()
-
+    const initialAppData =
+      template.gameType === 'group-sort'
+        ? { groups: [], items: [], _groupCounter: 0, _itemCounter: 0 }
+        : template.gameType === 'quiz'
+          ? { questions: [], _questionCounter: 0 }
+          : {}
     const newProject = {
       version: '1.0.0',
       templateId: template.id,
@@ -84,25 +138,32 @@ export default function HomePage() {
       createdAt: now,
       updatedAt: now,
       settings: null,
-      appData:
-        template.gameType === 'group-sort'
-          ? { groups: [], items: [], _groupCounter: 0, _itemCounter: 0 }
-          : {}
+      appData: initialAppData
     }
-
     await window.electronAPI.saveProject(newProject, projectPath)
-    navigate(`/project/${template.id}`, {
-      state: { filePath: projectPath, projectDir: folder, data: newProject }
-    })
+    await openProject(projectPath, newProject)
   }
 
-  const loadExistingFromFolder = async (folder: string) => {
+  const handleOpenFromFolder = async (folder: string) => {
     const filePath = `${folder}/project.mgproj`
     const result = await window.electronAPI.openProjectFile(filePath)
     if (!result) return
-    navigate(`/project/${result.data.templateId}`, {
-      state: { filePath: result.filePath, projectDir: folder, data: result.data }
-    })
+    await openProject(result.filePath, result.data)
+  }
+
+  const removeRecent = async (filePath: string) => {
+    const updated = recent.filter((r) => r.filePath !== filePath)
+    setRecent(updated)
+    await writeRecentProjects(updated)
+  }
+
+  const openRecent = async (entry: RecentProject) => {
+    const result = await window.electronAPI.openProjectFile(entry.filePath)
+    if (!result) {
+      alert(`Could not open "${entry.projectName}". The file may have been moved or deleted.`)
+      return
+    }
+    await openProject(result.filePath, result.data)
   }
 
   return (
@@ -113,7 +174,7 @@ export default function HomePage() {
         p: 5,
         display: 'flex',
         flexDirection: 'column',
-        gap: 5,
+        gap: 4,
         maxWidth: 1000,
         mx: 'auto',
         width: '100%'
@@ -140,52 +201,165 @@ export default function HomePage() {
         </Typography>
       </Box>
 
-      {/* Open existing */}
+      {/* ── Recent projects (collapsible) ── */}
       <Box>
-        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
-          Continue working
-        </Typography>
-        <Box sx={{ mt: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<FolderOpenIcon />}
-            onClick={handleOpenExisting}
-            size="large"
-            sx={{ borderStyle: 'dashed' }}
+        <Box
+          onClick={() => setShowRecent((v) => !v)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            cursor: 'pointer',
+            userSelect: 'none',
+            mb: showRecent ? 1.5 : 0
+          }}
+        >
+          <HistoryIcon
+            sx={{ fontSize: 18, color: recent.length > 0 ? 'primary.main' : 'text.disabled' }}
+          />
+          <Typography
+            variant="overline"
+            sx={{
+              letterSpacing: 2,
+              color: recent.length > 0 ? 'text.secondary' : 'text.disabled',
+              flex: 1
+            }}
           >
-            Open existing project…
-          </Button>
+            Continue working {recent.length > 0 && `(${recent.length})`}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FolderOpenIcon />}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleOpenExisting()
+              }}
+              sx={{ borderStyle: 'dashed', fontSize: '0.75rem' }}
+            >
+              Browse…
+            </Button>
+            {showRecent ? (
+              <ExpandLessIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+            ) : (
+              <ExpandMoreIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+            )}
+          </Box>
         </Box>
+
+        <Collapse in={showRecent}>
+          {recent.length === 0 ? (
+            <Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: 'center' }}>
+              No recently opened projects yet.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {recent.map((r) => (
+                <Box
+                  key={r.filePath}
+                  onClick={() => openRecent(r)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    background: '#1a1d27',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    '&:hover': { borderColor: 'rgba(255,255,255,0.14)', background: '#1e2130' }
+                  }}
+                >
+                  <SportsEsportsIcon
+                    sx={{ fontSize: 28, color: 'primary.main', opacity: 0.6, flexShrink: 0 }}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {r.projectName}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+                      <Chip
+                        label={r.templateName}
+                        size="small"
+                        sx={{ height: 16, fontSize: '0.6rem' }}
+                      />
+                      <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{ fontSize: '0.7rem' }}
+                      >
+                        Opened {timeAgo(r.lastOpened)}
+                      </Typography>
+                    </Box>
+                    <Tooltip title={r.filePath}>
+                      <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{
+                          fontSize: '0.65rem',
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          mt: 0.25
+                        }}
+                      >
+                        📁 {r.projectDir}
+                      </Typography>
+                    </Tooltip>
+                  </Box>
+                  <Tooltip title="Remove from list">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeRecent(r.filePath)
+                      }}
+                      sx={{ opacity: 0.4, '&:hover': { opacity: 1, color: 'error.main' } }}
+                    >
+                      <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Collapse>
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
 
-      {/* Templates */}
+      {/* ── Templates ── */}
       <Box>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
           Start a new project
         </Typography>
-
         {loading && (
           <Box sx={{ mt: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
             <CircularProgress size={20} />
-            <Typography color="text.secondary">Loading game templates…</Typography>
+            <Typography color="text.secondary">Loading game types…</Typography>
           </Box>
         )}
-
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
-            Could not load templates: {error}
+            Could not load game types: {error}
           </Alert>
         )}
-
         {!loading && !error && templates.length === 0 && (
           <Alert severity="info" sx={{ mt: 2 }}>
-            No templates found. Make sure the <code>templates/</code> directory contains at least
-            one game folder with <code>meta.json</code> and <code>index.html</code>.
+            No game types found. Make sure the <code>templates/</code> directory exists.
           </Alert>
         )}
-
         <Box
           sx={{
             mt: 2,
@@ -200,73 +374,71 @@ export default function HomePage() {
         </Box>
       </Box>
 
-      {/* ── Folder conflict: has existing project ── */}
+      {/* ── Folder conflict dialogs ── */}
       <Dialog
-        open={folderDialog?.type === 'has-project'}
-        onClose={() => setFolderDialog(null)}
+        open={folderDlg?.type === 'has-project'}
+        onClose={() => setFolderDlg(null)}
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Project already exists</DialogTitle>
+        <DialogTitle>Project already exists here</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This folder already contains a project file. Would you like to open it instead?
+            This folder already has a project file. Would you like to open it?
           </DialogContentText>
           <Typography
             variant="caption"
             color="text.disabled"
             sx={{ mt: 1, display: 'block', wordBreak: 'break-all' }}
           >
-            {folderDialog?.folder}
+            {folderDlg?.folder}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFolderDialog(null)}>Cancel</Button>
+          <Button onClick={() => setFolderDlg(null)}>Cancel</Button>
           <Button
             variant="contained"
             startIcon={<FolderOpenIcon />}
             onClick={async () => {
-              const d = folderDialog
-              setFolderDialog(null)
-              if (d) await loadExistingFromFolder(d.folder)
+              const d = folderDlg
+              setFolderDlg(null)
+              if (d) await handleOpenFromFolder(d.folder)
             }}
           >
-            Open existing project
+            Open existing
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ── Folder conflict: folder not empty, no project ── */}
       <Dialog
-        open={folderDialog?.type === 'non-empty'}
-        onClose={() => setFolderDialog(null)}
+        open={folderDlg?.type === 'non-empty'}
+        onClose={() => setFolderDlg(null)}
         maxWidth="xs"
         fullWidth
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <FolderOffIcon color="warning" />
-          Folder is not empty
+          <FolderOffIcon color="warning" /> Folder is not empty
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            The selected folder already contains files. Please choose an empty folder to avoid
-            mixing project files with other content.
+            Please choose an empty folder so your project files don't get mixed up with other
+            things.
           </DialogContentText>
           <Typography
             variant="caption"
             color="text.disabled"
             sx={{ mt: 1, display: 'block', wordBreak: 'break-all' }}
           >
-            {folderDialog?.folder}
+            {folderDlg?.folder}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFolderDialog(null)}>Cancel</Button>
+          <Button onClick={() => setFolderDlg(null)}>Cancel</Button>
           <Button
             variant="contained"
             onClick={async () => {
-              const d = folderDialog
-              setFolderDialog(null)
+              const d = folderDlg
+              setFolderDlg(null)
               if (d) await handleNewProject(d.template)
             }}
           >
@@ -291,10 +463,7 @@ function GameTemplateCard({
         background:
           'linear-gradient(135deg, rgba(110,231,183,0.05) 0%, rgba(167,139,250,0.05) 100%)',
         transition: 'transform 0.15s, box-shadow 0.15s',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 8px 32px rgba(110,231,183,0.12)'
-        }
+        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(110,231,183,0.12)' }
       }}
     >
       <CardActionArea onClick={() => onSelect(template)} sx={{ p: 1 }}>
@@ -303,6 +472,7 @@ function GameTemplateCard({
             height: 140,
             borderRadius: 1.5,
             mb: 1,
+            overflow: 'hidden',
             background:
               'linear-gradient(135deg, rgba(110,231,183,0.12) 0%, rgba(167,139,250,0.12) 100%)',
             display: 'flex',
@@ -310,9 +480,17 @@ function GameTemplateCard({
             justifyContent: 'center'
           }}
         >
-          <SportsEsportsIcon sx={{ fontSize: 56, color: 'primary.main', opacity: 0.6 }} />
+          {template.thumbnailUrl ? (
+            <Box
+              component="img"
+              src={template.thumbnailUrl}
+              alt={template.name}
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <SportsEsportsIcon sx={{ fontSize: 56, color: 'primary.main', opacity: 0.6 }} />
+          )}
         </Box>
-
         <CardContent sx={{ pt: 0.5, pb: '12px !important' }}>
           <Box
             sx={{
@@ -334,7 +512,6 @@ function GameTemplateCard({
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.8rem' }}>
             {template.description}
           </Typography>
-
           <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <AddIcon sx={{ fontSize: 16, color: 'primary.main' }} />
             <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>

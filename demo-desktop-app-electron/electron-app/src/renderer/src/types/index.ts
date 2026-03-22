@@ -1,89 +1,101 @@
-// ── Template meta ─────────────────────────────────────────────────────────────
+// ── Template ──────────────────────────────────────────────────────────────────
 export interface GameTemplate {
   id: string
   name: string
   description: string
-  thumbnail?: string
-  gameType: 'group-sort' | string
+  gameType: 'group-sort' | 'quiz' | string
   version: string
+  thumbnailUrl: string | null // file:// URL resolved by main process, or null
 }
 
-// ── Group Sort game data ──────────────────────────────────────────────────────
+// ── Group Sort ────────────────────────────────────────────────────────────────
 export interface GroupSortGroup {
-  id: string // e.g. "group-1", "group-2"
+  id: string
   name: string
   imagePath: string | null
 }
-
 export interface GroupSortItem {
-  id: string // e.g. "item-1", "item-2"
+  id: string
   name: string
   imagePath: string | null
   groupId: string
 }
-
 export interface GroupSortAppData {
   groups: GroupSortGroup[]
   items: GroupSortItem[]
-  // Monotonically increasing counters — never reset on delete
   _groupCounter: number
   _itemCounter: number
 }
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+export interface QuizAnswer {
+  id: string
+  text: string
+  isCorrect: boolean
+}
+export interface QuizQuestion {
+  id: string
+  question: string
+  imagePath: string | null
+  answers: QuizAnswer[]
+  multipleCorrect: boolean
+  _answerCounter: number
+}
+export interface QuizAppData {
+  questions: QuizQuestion[]
+  _questionCounter: number
+}
 
-/** How auto-save is triggered */
-export type AutoSaveMode =
-  | 'off'
-  | 'on-edit' // save after every change (debounced ~1s)
-  | 'interval' // save every N seconds
+export type AnyAppData = GroupSortAppData | QuizAppData
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+export type AutoSaveMode = 'off' | 'on-edit' | 'interval'
 
 export interface GlobalSettings {
-  autoSave: {
-    mode: AutoSaveMode
-    intervalSeconds: number // used when mode === 'interval', default 30
-  }
-  /** Prefill group/item names like "Group 1", "Item 1" on creation */
+  autoSave: { mode: AutoSaveMode; intervalSeconds: number }
   prefillNames: boolean
 }
-
-/** Per-project overrides — null means "use global setting" */
 export interface ProjectSettings {
-  autoSave?: {
-    mode?: AutoSaveMode
-    intervalSeconds?: number
-  } | null
+  autoSave?: { mode?: AutoSaveMode; intervalSeconds?: number } | null
   prefillNames?: boolean | null
 }
-
-/** Resolved = global merged with project override */
 export type ResolvedSettings = GlobalSettings
 
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
-  autoSave: {
-    mode: 'on-edit',
-    intervalSeconds: 30
-  },
+  autoSave: { mode: 'on-edit', intervalSeconds: 30 },
   prefillNames: true
 }
 
-// ── Project file (saved as .mgproj) ──────────────────────────────────────────
+// ── Recent projects ───────────────────────────────────────────────────────────
+export interface RecentProject {
+  filePath: string
+  projectDir: string
+  templateId: string
+  templateName: string
+  projectName: string
+  lastOpened: string // ISO date string
+}
+
+// ── Project file ──────────────────────────────────────────────────────────────
 export interface ProjectFile {
   version: string
   templateId: string
   name: string
   createdAt: string
   updatedAt: string
-  settings?: ProjectSettings // optional per-project overrides
-  appData: GroupSortAppData
+  settings?: ProjectSettings | null
+  appData: AnyAppData
 }
 
 // ── In-memory project state ───────────────────────────────────────────────────
-export interface ProjectState {
+export interface ProjectMeta {
   filePath: string
   projectDir: string
-  isDirty: boolean
-  data: ProjectFile
+  templateId: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  settings?: ProjectSettings | null
 }
 
 // ── Electron API ──────────────────────────────────────────────────────────────
@@ -93,11 +105,21 @@ export interface ElectronAPI {
   chooseProjectFolder: () => Promise<string | null>
   openProjectFile: (filePath?: string) => Promise<{ filePath: string; data: ProjectFile } | null>
   saveProject: (data: object, projectPath: string) => Promise<boolean>
+  saveProjectAs: (opts: {
+    projectData: object
+    oldProjectDir: string
+  }) => Promise<{ folder: string; status: 'empty' | 'has-project' | 'non-empty' } | null>
+  doSaveAs: (opts: {
+    projectData: object
+    oldProjectDir: string
+    newFolder: string
+  }) => Promise<{ filePath: string; projectDir: string }>
   pickImage: () => Promise<string | null>
   importImage: (sourcePath: string, projectDir: string, desiredName: string) => Promise<string>
   resolveAssetUrl: (projectDir: string, relativePath: string) => Promise<string>
   settingsReadGlobal: () => Promise<object>
   settingsWriteGlobal: (data: object) => Promise<boolean>
+  setTitle: (title: string) => Promise<void>
   exportProject: (opts: {
     templateId: string
     appData: object
