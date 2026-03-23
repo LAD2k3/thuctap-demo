@@ -440,7 +440,7 @@ export default function ProjectPage() {
             onChange={handleAppDataChange}
           />
         )}
-        {templateId === 'quiz' && (
+        {templateId === 'plane-quiz' && (
           <QuizEditor
             appData={history.present as any}
             projectDir={meta.projectDir}
