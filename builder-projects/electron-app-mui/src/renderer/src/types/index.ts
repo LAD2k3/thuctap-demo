@@ -3,11 +3,7 @@ export interface GameTemplate {
   id: string
   name: string
   description: string
-<<<<<<< HEAD
-  gameType: 'group-sort' | 'quiz' | 'word-search' | string
-=======
-  gameType: 'group-sort' | 'plane-quiz' | string
->>>>>>> origin/main
+  gameType: 'group-sort' | 'quiz' | 'plane-quiz' | 'word-search' | string
   version: string
   thumbnailUrl: string | null // file:// URL resolved by main process, or null
 }

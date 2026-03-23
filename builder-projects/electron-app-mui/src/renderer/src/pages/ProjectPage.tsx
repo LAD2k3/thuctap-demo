@@ -64,12 +64,17 @@ function normalizeWordSearchData(appData: AnyAppData): WordSearchAppData | null 
   return appData as WordSearchAppData
 }
 
+function resolveTemplateId(templateId: string): string {
+  return templateId === 'quiz' ? 'plane-quiz' : templateId
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ProjectPage() {
   const { templateId } = useParams<{ templateId: string }>()
   const location = useLocation()
   const navigate = useNavigate()
   const { resolved, setProjectSettings } = useSettings()
+  const effectiveTemplateId = templateId ? resolveTemplateId(templateId) : null
 
   const locationState = location.state as {
     filePath: string
@@ -83,7 +88,7 @@ export default function ProjectPage() {
       ? {
           filePath: locationState.filePath,
           projectDir: locationState.projectDir,
-          templateId: locationState.data.templateId,
+          templateId: resolveTemplateId(locationState.data.templateId),
           name: locationState.data.name,
           createdAt: locationState.data.createdAt,
           updatedAt: locationState.data.updatedAt,
@@ -114,12 +119,12 @@ export default function ProjectPage() {
 
   // Update window title whenever meta or appData changes
   useEffect(() => {
-    if (!meta || !templateId) return
-    const tName = templates.find((t) => t.id === templateId)?.name ?? templateId
+    if (!meta || !effectiveTemplateId) return
+    const tName = templates.find((t) => t.id === effectiveTemplateId)?.name ?? effectiveTemplateId
     const title = buildTitle(tName, meta.name, meta.filePath)
     document.title = title
     window.electronAPI.setTitle(title)
-  }, [meta, templateId, templates])
+  }, [effectiveTemplateId, meta, templates])
 
   const [snack, setSnack] = useState<{
     msg: string
@@ -297,7 +302,7 @@ export default function ProjectPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [history, handleSave, handleSaveAs])
 
-  if (!meta || !templateId) {
+  if (!meta || !effectiveTemplateId) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="error">No project data. Go back and try again.</Typography>
@@ -306,8 +311,11 @@ export default function ProjectPage() {
     )
   }
 
-  const templateName = templates.find((t) => t.id === templateId)?.name ?? templateId
-  const wordSearchData = templateId === 'word-search' ? normalizeWordSearchData(history.present) : null
+  const activeTemplate = templates.find((t) => t.id === meta.templateId) ?? null
+  const templateName = activeTemplate?.name ?? effectiveTemplateId
+  const activeGameType = activeTemplate?.gameType ?? effectiveTemplateId
+  const wordSearchData =
+    activeGameType === 'word-search' ? normalizeWordSearchData(history.present) : null
   const wordSearchValidWords =
     wordSearchData?.items.filter((item) => item.word.trim()).length ?? 0
   const wordSearchDuplicateCount = wordSearchData
@@ -367,7 +375,7 @@ export default function ProjectPage() {
             >
               {meta.name}
             </Typography>
-            {templateId === 'word-search' && (
+            {activeGameType === 'word-search' && (
               <Typography
                 variant="caption"
                 sx={{
@@ -464,7 +472,7 @@ export default function ProjectPage() {
       </Box>
 
       {/* ── Editor ── */}
-      {templateId === 'word-search' && wordSearchData && (
+      {activeGameType === 'word-search' && wordSearchData && (
         <Box
           sx={{
             px: 3,
@@ -515,21 +523,21 @@ export default function ProjectPage() {
       )}
 
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
-        {templateId === 'group-sort' && (
+        {activeGameType === 'group-sort' && (
           <GroupSortEditor
             appData={history.present as any}
             projectDir={meta.projectDir}
             onChange={handleAppDataChange}
           />
         )}
-        {templateId === 'plane-quiz' && (
+        {(activeGameType === 'quiz' || activeGameType === 'plane-quiz') && (
           <QuizEditor
             appData={history.present as any}
             projectDir={meta.projectDir}
             onChange={handleAppDataChange}
           />
         )}
-        {templateId === 'word-search' && (
+        {activeGameType === 'word-search' && (
           <WordSearchEditor
             appData={history.present as any}
             projectDir={meta.projectDir}
@@ -554,7 +562,7 @@ export default function ProjectPage() {
           <ListItemText
             primary="Export to folder"
             secondary={
-              templateId === 'word-search'
+              activeGameType === 'word-search'
                 ? 'Creates a playable word-search folder with image clues'
                 : 'Copies game + assets'
             }
@@ -568,7 +576,7 @@ export default function ProjectPage() {
           <ListItemText
             primary="Export as ZIP"
             secondary={
-              templateId === 'word-search'
+              activeGameType === 'word-search'
                 ? 'Packages the word-search game into one archive'
                 : 'Single archive'
             }
