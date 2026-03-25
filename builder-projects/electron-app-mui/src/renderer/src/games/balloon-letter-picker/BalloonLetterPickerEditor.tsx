@@ -48,12 +48,12 @@ export default function BalloonLetterPickerEditor({
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
   const addWord = useCallback(
-    (initialImageUrl?: string) => {
+    (initialImagePath?: string) => {
       const c = data._wordCounter + 1
       const w: BalloonWord = {
         id: `word-${c}`,
         word: resolved.prefillNames ? `WORD${c}` : '',
-        imageUrl: initialImageUrl ?? '',
+        imagePath: initialImagePath ?? '',
         hint: ''
       }
       onChange({ ...data, _wordCounter: c, words: [...words, w] })
@@ -67,11 +67,11 @@ export default function BalloonLetterPickerEditor({
       const id = `word-${c}`
       const relativePath = await window.electronAPI.importImage(filePath, projectDir, id)
       // Convert to the ./images/... style relative path the template expects
-      const imageUrl = `./${relativePath.replace(/\\/g, '/')}`
+      const imagePath = `./${relativePath.replace(/\\/g, '/')}`
       const w: BalloonWord = {
         id,
         word: resolved.prefillNames ? `WORD${c}` : '',
-        imageUrl,
+        imagePath,
         hint: ''
       }
       onChange({ ...data, _wordCounter: c, words: [...words, w] })
@@ -94,12 +94,12 @@ export default function BalloonLetterPickerEditor({
   )
 
   // ── Image pick helper (for the inline ImagePicker inside each card) ────────
-  // The template stores imageUrl as a relative string path (./images/words/foo.png)
-  // We handle it by surfacing ImagePicker but mapping its relativePath → imageUrl field
+  // The template stores imagePath as a relative string path (./images/words/foo.png)
+  // We handle it by surfacing ImagePicker but mapping its relativePath → imagePath field
   const handleImageChange = useCallback(
     (id: string, relativePath: string | null) => {
-      const imageUrl = relativePath ? `./${relativePath.replace(/\\/g, '/')}` : ''
-      updateWord(id, { imageUrl })
+      const imagePath = relativePath ? `./${relativePath.replace(/\\/g, '/')}` : ''
+      updateWord(id, { imagePath })
     },
     [updateWord]
   )
@@ -155,7 +155,7 @@ export default function BalloonLetterPickerEditor({
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           <SummaryRow label="Total words" value={words.length} />
-          <SummaryRow label="With images" value={words.filter((w) => !!w.imageUrl).length} />
+          <SummaryRow label="With images" value={words.filter((w) => !!w.imagePath).length} />
           <SummaryRow label="With hints" value={words.filter((w) => !!w.hint.trim()).length} />
           {missingWord.length > 0 && (
             <Typography variant="caption" color="error.main" sx={{ mt: 0.5 }}>
@@ -265,9 +265,9 @@ function WordCard({
   const wordText = word.word.trim().toUpperCase()
   const isInvalid = wordText && !/^[A-Z]+$/.test(wordText)
 
-  // Derive relative path from imageUrl for ImagePicker's value prop
-  // imageUrl is like './images/words/jump.png', relativePath is 'images/words/jump.png'
-  const imageRelative = word.imageUrl ? word.imageUrl.replace(/^\.\//, '') : null
+  // Derive relative path from imagePath for ImagePicker's value prop
+  // imagePath is like './images/words/jump.png', relativePath is 'images/words/jump.png'
+  const imageRelative = word.imagePath ? word.imagePath.replace(/^\.\//, '') : null
 
   return (
     <Paper

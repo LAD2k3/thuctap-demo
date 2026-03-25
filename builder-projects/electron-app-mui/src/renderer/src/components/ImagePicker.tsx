@@ -23,7 +23,7 @@ export default function ImagePicker({
 }: Props): React.ReactElement {
   const [loading, setLoading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const url = useAssetUrl(projectDir, value)
+  const { data: url } = useAssetUrl(projectDir, value)
 
   const importFile = async (filePath: string): Promise<void> => {
     setLoading(true)

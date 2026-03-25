@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react'
-
-const cache = new Map<string, string>()
+import { useQuery, UseQueryResult } from '@tanstack/react-query'
 
 /**
  * Resolves a project-relative asset path (e.g. "assets/cat.png") to a
@@ -8,25 +6,12 @@ const cache = new Map<string, string>()
  */
 export function useAssetUrl(
   projectDir: string,
-  relativePath: string | null | undefined
-): string | null {
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!relativePath) {
-      setUrl(null)
-      return
-    }
-    const key = `${projectDir}::${relativePath}`
-    if (cache.has(key)) {
-      setUrl(cache.get(key)!)
-      return
-    }
-    window.electronAPI.resolveAssetUrl(projectDir, relativePath).then((resolved) => {
-      cache.set(key, resolved)
-      setUrl(resolved)
-    })
-  }, [projectDir, relativePath])
-
-  return url
+  relativePath: string | null
+): UseQueryResult<string> {
+  return useQuery({
+    queryKey: ['assets', projectDir, relativePath],
+    queryFn: () => window.electronAPI.resolveAssetUrl(projectDir, relativePath!),
+    enabled: !!relativePath, // Don't run if path is null
+    staleTime: Infinity // Effectively replaces your manual Map cache
+  })
 }
