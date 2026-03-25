@@ -3,16 +3,15 @@ import GamePreview from "../components/Game/GamePreview";
 import { generateWordSearch } from "../engine/generateWordSearch";
 import { getBrightness } from "../utils/imageUtils";
 
-const cat = "./images/cat.jpg";
-const customBackground = "./images/2305.w026.n002.3617B.p1.3617.jpg";
+const customBackground = "";
 
 export default function WordSearchPage() {
   const [items, setItems] = useState(window.APP_DATA?.items || [
-    { word: "CAT", image: "./images/cat.jpg" },
-    { word: "FLOWER", image: "./images/flower.jpg" },
-    { word: "JUMP", image: "./images/jump.jpg" },
-    { word: "BIRD", image: "./images/bird.jpg" },
-    { word: "STAR", image: "./images/star.jpg" },
+    { word: "CAT", image: "🐱" },
+    { word: "FLOWER", image: "🌸" },
+    { word: "JUMP", image: "🦘" },
+    { word: "BIRD", image: "🐦" },
+    { word: "STAR", image: "⭐" },
   ]);
   const [background, setBackground] = useState(window.APP_DATA?.background || customBackground);
   const [grid, setGrid] = useState([]);
