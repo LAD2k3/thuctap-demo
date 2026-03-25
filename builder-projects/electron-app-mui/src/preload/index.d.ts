@@ -32,6 +32,7 @@ export interface ElectronAPI {
     appData: object
     projectDir: string
   }) => Promise<void>
+  getPathForFile: (file: File) => string
 }
 
 declare global {

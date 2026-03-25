@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getTemplates: () => ipcRenderer.invoke('get-templates'),
@@ -26,5 +26,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     mode: 'folder' | 'zip'
   }) => ipcRenderer.invoke('export-project', opts),
   previewProject: (opts: { templateId: string; appData: object; projectDir: string }) =>
-    ipcRenderer.invoke('preview-project', opts)
+    ipcRenderer.invoke('preview-project', opts),
+  getPathForFile: (file: File) => webUtils.getPathForFile(file)
 })

@@ -17,8 +17,8 @@ import {
 import { JSX, useCallback } from 'react'
 import {
   AtoZWordField,
-  DroppableZone,
   EmptyState,
+  FileDropTarget,
   IndexBadge,
   SidebarTab,
   StickyHeader,
@@ -191,7 +191,7 @@ export default function BalloonLetterPickerEditor({
           title="Words"
           description="Each word will be spelled by picking letters from balloons. Add a hint to help students."
           actions={
-            <DroppableZone onFileDrop={addWordFromDrop}>
+            <FileDropTarget onFileDrop={addWordFromDrop}>
               <Button
                 startIcon={<AddIcon />}
                 variant="contained"
@@ -200,7 +200,7 @@ export default function BalloonLetterPickerEditor({
               >
                 Add Word
               </Button>
-            </DroppableZone>
+            </FileDropTarget>
           }
         />
 
@@ -272,66 +272,68 @@ function WordCard({
   const imageRelative = word.imagePath ? word.imagePath.replace(/^\.\//, '') : null
 
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        border: '1px solid',
-        borderColor: isInvalid ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.06)',
-        borderRadius: 2,
-        background: '#1a1d27',
-        transition: 'border-color 0.15s',
-        '&:hover': {
-          borderColor: isInvalid ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.12)'
-        }
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-        <IndexBadge index={index} color="primary" />
+    <FileDropTarget onFileDrop={(fp) => onImageChange(word.id, fp)}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          border: '1px solid',
+          borderColor: isInvalid ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.06)',
+          borderRadius: 2,
+          background: '#1a1d27',
+          transition: 'border-color 0.15s',
+          '&:hover': {
+            borderColor: isInvalid ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.12)'
+          }
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+          <IndexBadge index={index} color="primary" />
 
-        <ImagePicker
-          projectDir={projectDir}
-          desiredNamePrefix={word.id}
-          value={imageRelative}
-          onChange={(p) => onImageChange(word.id, p)}
-          label="Word image"
-          size={80}
-        />
-
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <AtoZWordField
-            label="Word (uppercase letters only)"
-            value={word.word}
-            onChange={(v) => onUpdate(word.id, { word: v })}
-            placeholder="e.g. JUMP"
-            autoFocus={autoFocus}
+          <ImagePicker
+            projectDir={projectDir}
+            desiredNamePrefix={word.id}
+            value={imageRelative}
+            onChange={(p) => onImageChange(word.id, p)}
+            label="Word image"
+            size={80}
           />
 
-          {/* Hint field */}
-          <TextField
-            label="Hint"
-            value={word.hint}
-            onChange={(e) => onUpdate(word.id, { hint: e.target.value })}
-            placeholder="e.g. He pushes his body off the ground and rises into the air."
-            size="small"
-            multiline
-            minRows={2}
-            fullWidth
-            error={!word.hint.trim()}
-            helperText={!word.hint.trim() ? 'Required — helps students guess the word' : ''}
-          />
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <AtoZWordField
+              label="Word (uppercase letters only)"
+              value={word.word}
+              onChange={(v) => onUpdate(word.id, { word: v })}
+              placeholder="e.g. JUMP"
+              autoFocus={autoFocus}
+            />
+
+            {/* Hint field */}
+            <TextField
+              label="Hint"
+              value={word.hint}
+              onChange={(e) => onUpdate(word.id, { hint: e.target.value })}
+              placeholder="e.g. He pushes his body off the ground and rises into the air."
+              size="small"
+              multiline
+              minRows={2}
+              fullWidth
+              error={!word.hint.trim()}
+              helperText={!word.hint.trim() ? 'Required — helps students guess the word' : ''}
+            />
+          </Box>
+
+          <Tooltip title="Delete word">
+            <IconButton
+              size="small"
+              onClick={() => onDelete(word.id)}
+              sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
-
-        <Tooltip title="Delete word">
-          <IconButton
-            size="small"
-            onClick={() => onDelete(word.id)}
-            sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
-    </Paper>
+      </Paper>
+    </FileDropTarget>
   )
 }

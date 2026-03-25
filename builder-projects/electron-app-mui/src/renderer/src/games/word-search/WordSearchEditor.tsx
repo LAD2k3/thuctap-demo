@@ -6,8 +6,8 @@ import { Alert, Box, Button, Collapse, IconButton, Paper, Tooltip, Typography } 
 import { useCallback, useState } from 'react'
 import {
   AtoZWordField,
-  DroppableZone,
   EmptyState,
+  FileDropTarget,
   IndexBadge,
   SidebarTab,
   StickyHeader,
@@ -187,7 +187,7 @@ function WordsTab({
         title="Words"
         description="Add words and corresponding images for the word search."
         actions={
-          <DroppableZone onFileDrop={onAddFromDrop}>
+          <FileDropTarget onFileDrop={onAddFromDrop}>
             <Button
               startIcon={<AddIcon />}
               variant="contained"
@@ -196,7 +196,7 @@ function WordsTab({
             >
               Add Word
             </Button>
-          </DroppableZone>
+          </FileDropTarget>
         }
       />
       {items.length === 0 ? (
@@ -240,46 +240,48 @@ function WordCard({
   onDelete: (id: string) => void
 }): React.JSX.Element {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 2,
-        background: '#1a1d27',
-        transition: 'border-color 0.15s',
-        '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
-      }}
-    >
-      <IndexBadge index={index} color="primary" />
-      <ImagePicker
-        projectDir={projectDir}
-        desiredNamePrefix={item.id}
-        value={item.imagePath}
-        onChange={(p) => onUpdate(item.id, { imagePath: p })}
-        label="Image"
-        size={72}
-      />
-      <AtoZWordField
-        label="Word"
-        value={item.word}
-        onChange={(v) => onUpdate(item.id, { word: v })}
-        placeholder="e.g. APPLE, DOG…"
-        autoFocus={autoFocus}
-      />
-      <Tooltip title="Delete word">
-        <IconButton
-          size="small"
-          onClick={() => onDelete(item.id)}
-          sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Paper>
+    <FileDropTarget onFileDrop={(fp) => onUpdate(item.id, { imagePath: fp })}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 2,
+          background: '#1a1d27',
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
+        }}
+      >
+        <IndexBadge index={index} color="primary" />
+        <ImagePicker
+          projectDir={projectDir}
+          desiredNamePrefix={item.id}
+          value={item.imagePath}
+          onChange={(p) => onUpdate(item.id, { imagePath: p })}
+          label="Image"
+          size={72}
+        />
+        <AtoZWordField
+          label="Word"
+          value={item.word}
+          onChange={(v) => onUpdate(item.id, { word: v })}
+          placeholder="e.g. APPLE, DOG…"
+          autoFocus={autoFocus}
+        />
+        <Tooltip title="Delete word">
+          <IconButton
+            size="small"
+            onClick={() => onDelete(item.id)}
+            sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Paper>
+    </FileDropTarget>
   )
 }
 

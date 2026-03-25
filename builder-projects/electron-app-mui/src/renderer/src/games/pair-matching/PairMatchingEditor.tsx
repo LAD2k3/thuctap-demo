@@ -16,8 +16,8 @@ import {
 } from '@mui/material'
 import { JSX, useCallback, useState } from 'react'
 import {
-  DroppableZone,
   EmptyState,
+  FileDropTarget,
   IndexBadge,
   NameField,
   SidebarTab,
@@ -191,7 +191,7 @@ function PairsTab({
         title="Pairs"
         description="Add pairs of images and keywords for students to match."
         actions={
-          <DroppableZone onFileDrop={onAddFromDrop}>
+          <FileDropTarget onFileDrop={onAddFromDrop}>
             <Button
               startIcon={<AddIcon />}
               variant="contained"
@@ -200,7 +200,7 @@ function PairsTab({
             >
               Add Pair
             </Button>
-          </DroppableZone>
+          </FileDropTarget>
         }
       />
       {items.length === 0 ? (
@@ -244,58 +244,60 @@ function PairCard({
   onDelete: (id: string) => void
 }): JSX.Element {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 2,
-        background: '#1a1d27',
-        transition: 'border-color 0.15s',
-        '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
-      }}
-    >
-      <IndexBadge index={index} color="primary" />
-      <ImagePicker
-        projectDir={projectDir}
-        desiredNamePrefix={item.id}
-        value={item.imagePath}
-        onChange={(p) => onUpdate(item.id, { imagePath: p })}
-        label="Image"
-        size={72}
-      />
-      <NameField
-        label="Keyword"
-        value={item.keyword}
-        onChange={(v) => onUpdate(item.id, { keyword: v })}
-        placeholder="e.g. Apple, Dog…"
-        autoFocus={autoFocus}
-      />
-      <TextField
-        label="Min Pairs"
-        type="number"
-        size="small"
-        value={item.minPairs ?? ''}
-        onChange={(e) => {
-          const val = e.target.value === '' ? null : Number(e.target.value)
-          onUpdate(item.id, { minPairs: val })
+    <FileDropTarget onFileDrop={(fp) => onUpdate(item.id, { imagePath: fp })}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 2,
+          background: '#1a1d27',
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
         }}
-        sx={{ width: 100 }}
-        placeholder="Default"
-      />
-      <Tooltip title="Delete pair">
-        <IconButton
+      >
+        <IndexBadge index={index} color="primary" />
+        <ImagePicker
+          projectDir={projectDir}
+          desiredNamePrefix={item.id}
+          value={item.imagePath}
+          onChange={(p) => onUpdate(item.id, { imagePath: p })}
+          label="Image"
+          size={72}
+        />
+        <NameField
+          label="Keyword"
+          value={item.keyword}
+          onChange={(v) => onUpdate(item.id, { keyword: v })}
+          placeholder="e.g. Apple, Dog…"
+          autoFocus={autoFocus}
+        />
+        <TextField
+          label="Min Pairs"
+          type="number"
           size="small"
-          onClick={() => onDelete(item.id)}
-          sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Paper>
+          value={item.minPairs ?? ''}
+          onChange={(e) => {
+            const val = e.target.value === '' ? null : Number(e.target.value)
+            onUpdate(item.id, { minPairs: val })
+          }}
+          sx={{ width: 100 }}
+          placeholder="Default"
+        />
+        <Tooltip title="Delete pair">
+          <IconButton
+            size="small"
+            onClick={() => onDelete(item.id)}
+            sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Paper>
+    </FileDropTarget>
   )
 }
 

@@ -185,6 +185,7 @@ export interface ElectronAPI {
     appData: object
     projectDir: string
   }) => Promise<{ success?: boolean }>
+  getPathForFile: (file: File) => string
 }
 
 declare global {

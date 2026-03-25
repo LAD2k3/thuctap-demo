@@ -3,7 +3,8 @@
  * Keep this file free of game-specific logic.
  */
 import { Badge, Box, Chip, TextField, Typography } from '@mui/material'
-import { JSX, useCallback, useEffect, useRef, useState } from 'react'
+import { JSX, useCallback, useEffect, useRef } from 'react'
+import { useDropzone } from 'react-dropzone'
 
 // ── SidebarTab ────────────────────────────────────────────────────────────────
 export function SidebarTab({
@@ -279,48 +280,43 @@ export function EmptyState({
   )
 }
 
-// ── DroppableZone ─────────────────────────────────────────────────────────────
+// ── FileDropTarget ────────────────────────────────────────────────────────────
 /**
- * Wraps any children with HTML5 drag-over/drop listeners for image files.
+ * Wraps any children with react-dropzone for image files.
  * Highlights when an image is dragged over. Calls onFileDrop with the
- * native file path (Electron adds .path to File objects).
+ * native file path.
  */
-export function DroppableZone({
+export function FileDropTarget({
   onFileDrop,
   children,
-  sx
+  sx,
+  disabled
 }: {
   onFileDrop: (filePath: string) => void
   children: React.ReactNode
   sx?: object
+  disabled?: boolean
 }): JSX.Element {
-  const [over, setOver] = useState(false)
-
-  const handleDragOver = (e: React.DragEvent): void => {
-    if (e.dataTransfer.types.includes('Files')) {
-      e.preventDefault()
-      setOver(true)
-    }
-  }
-  const handleDragLeave = (e: React.DragEvent): void => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false)
-  }
-  const handleDrop = (e: React.DragEvent): void => {
-    e.preventDefault()
-    setOver(false)
-    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'))
-    if (file) onFileDrop((file as File & { path: string }).path)
-  }
+  const { getRootProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      const file = acceptedFiles.find((f) => f.type.startsWith('image/'))
+      if (file) {
+        onFileDrop(window.electronAPI.getPathForFile(file))
+      }
+    },
+    noClick: true, // Let children handle clicks (e.g. Buttons)
+    disabled,
+    accept: { 'image/*': [] }
+  })
 
   return (
     <Box
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      {...getRootProps()}
       sx={{
         borderRadius: 1.5,
-        transition: 'outline 0.1s',
-        outline: over ? '2px solid #6ee7b7' : '2px solid transparent',
+        transition: 'outline 0.1s, background 0.1s',
+        outline: isDragActive ? '2px solid #6ee7b7' : '2px solid transparent',
+        background: isDragActive ? 'rgba(110,231,183,0.05)' : 'transparent',
         ...sx
       }}
     >

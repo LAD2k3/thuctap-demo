@@ -22,8 +22,8 @@ import {
 } from '@mui/material'
 import { JSX, useCallback, useState } from 'react'
 import {
-  DroppableZone,
   EmptyState,
+  FileDropTarget,
   IndexBadge,
   NameField,
   SidebarTab,
@@ -357,7 +357,7 @@ function GroupsTab({
         title="Groups"
         description="Each group is a sorting category. Items will be sorted into these groups."
         actions={
-          <DroppableZone onFileDrop={onAddFromDrop}>
+          <FileDropTarget onFileDrop={onAddFromDrop}>
             <Button
               startIcon={<AddIcon />}
               variant="contained"
@@ -366,7 +366,7 @@ function GroupsTab({
             >
               Add Group
             </Button>
-          </DroppableZone>
+          </FileDropTarget>
         }
       />
       {groups.length === 0 ? (
@@ -410,46 +410,48 @@ function GroupCard({
   onDelete: (id: string) => void
 }): JSX.Element {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 2,
-        background: '#1a1d27',
-        transition: 'border-color 0.15s',
-        '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
-      }}
-    >
-      <IndexBadge index={index} color="primary" />
-      <ImagePicker
-        projectDir={projectDir}
-        desiredNamePrefix={group.id}
-        value={group.imagePath}
-        onChange={(p) => onUpdate(group.id, { imagePath: p })}
-        label="Group image"
-        size={72}
-      />
-      <NameField
-        label="Group name"
-        value={group.name}
-        onChange={(v) => onUpdate(group.id, { name: v })}
-        placeholder="e.g. Animals, Fruits, Colors…"
-        autoFocus={autoFocus}
-      />
-      <Tooltip title="Delete group">
-        <IconButton
-          size="small"
-          onClick={() => onDelete(group.id)}
-          sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Paper>
+    <FileDropTarget onFileDrop={(fp) => onUpdate(group.id, { imagePath: fp })}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 2,
+          background: '#1a1d27',
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'rgba(255,255,255,0.12)' }
+        }}
+      >
+        <IndexBadge index={index} color="primary" />
+        <ImagePicker
+          projectDir={projectDir}
+          desiredNamePrefix={group.id}
+          value={group.imagePath}
+          onChange={(p) => onUpdate(group.id, { imagePath: p })}
+          label="Group image"
+          size={72}
+        />
+        <NameField
+          label="Group name"
+          value={group.name}
+          onChange={(v) => onUpdate(group.id, { name: v })}
+          placeholder="e.g. Animals, Fruits, Colors…"
+          autoFocus={autoFocus}
+        />
+        <Tooltip title="Delete group">
+          <IconButton
+            size="small"
+            onClick={() => onDelete(group.id)}
+            sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Paper>
+    </FileDropTarget>
   )
 }
 
@@ -477,7 +479,7 @@ function ItemsTab({
         title="Items"
         description="Each item belongs to one group. Students will drag these into the correct group."
         actions={
-          <DroppableZone onFileDrop={onAddFromDrop}>
+          <FileDropTarget onFileDrop={onAddFromDrop}>
             <Button
               startIcon={<AddIcon />}
               variant="contained"
@@ -487,7 +489,7 @@ function ItemsTab({
             >
               Add Item
             </Button>
-          </DroppableZone>
+          </FileDropTarget>
         }
       />
       {groups.length === 0 && (
@@ -540,66 +542,72 @@ function ItemCard({
 }): JSX.Element {
   const assigned = groups.find((g) => g.id === item.groupId)
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 2,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        border: '1px solid',
-        borderColor: !assigned ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.06)',
-        borderRadius: 2,
-        background: '#1a1d27',
-        transition: 'border-color 0.15s',
-        '&:hover': { borderColor: !assigned ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.12)' }
-      }}
-    >
-      <IndexBadge index={index} color="secondary" />
-      <ImagePicker
-        projectDir={projectDir}
-        desiredNamePrefix={item.id}
-        value={item.imagePath}
-        onChange={(p) => onUpdate(item.id, { imagePath: p })}
-        label="Item image"
-        size={72}
-      />
-      <NameField
-        label="Item name"
-        value={item.name}
-        onChange={(v) => onUpdate(item.id, { name: v })}
-        placeholder="e.g. Dog, Apple, Red…"
-        autoFocus={autoFocus}
-      />
-      <FormControl size="small" sx={{ minWidth: 160 }} error={!assigned}>
-        <InputLabel>Belongs to group</InputLabel>
-        <Select
-          value={item.groupId}
-          label="Belongs to group"
-          onChange={(e) => onUpdate(item.id, { groupId: e.target.value })}
-        >
-          {groups.map((g) => (
-            <MenuItem key={g.id} value={g.id}>
-              {g.name || '(unnamed)'}
-            </MenuItem>
-          ))}
-        </Select>
-        {!assigned && (
-          <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, fontSize: '0.65rem' }}>
-            Unassigned
-          </Typography>
-        )}
-      </FormControl>
-      <Tooltip title="Delete item">
-        <IconButton
-          size="small"
-          onClick={() => onDelete(item.id)}
-          sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Paper>
+    <FileDropTarget onFileDrop={(fp) => onUpdate(item.id, { imagePath: fp })}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          border: '1px solid',
+          borderColor: !assigned ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.06)',
+          borderRadius: 2,
+          background: '#1a1d27',
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: !assigned ? 'rgba(251,191,36,0.6)' : 'rgba(255,255,255,0.12)' }
+        }}
+      >
+        <IndexBadge index={index} color="secondary" />
+        <ImagePicker
+          projectDir={projectDir}
+          desiredNamePrefix={item.id}
+          value={item.imagePath}
+          onChange={(p) => onUpdate(item.id, { imagePath: p })}
+          label="Item image"
+          size={72}
+        />
+        <NameField
+          label="Item name"
+          value={item.name}
+          onChange={(v) => onUpdate(item.id, { name: v })}
+          placeholder="e.g. Dog, Apple, Red…"
+          autoFocus={autoFocus}
+        />
+        <FormControl size="small" sx={{ minWidth: 160 }} error={!assigned}>
+          <InputLabel>Belongs to group</InputLabel>
+          <Select
+            value={item.groupId}
+            label="Belongs to group"
+            onChange={(e) => onUpdate(item.id, { groupId: e.target.value })}
+          >
+            {groups.map((g) => (
+              <MenuItem key={g.id} value={g.id}>
+                {g.name || '(unnamed)'}
+              </MenuItem>
+            ))}
+          </Select>
+          {!assigned && (
+            <Typography
+              variant="caption"
+              color="warning.main"
+              sx={{ mt: 0.5, fontSize: '0.65rem' }}
+            >
+              Unassigned
+            </Typography>
+          )}
+        </FormControl>
+        <Tooltip title="Delete item">
+          <IconButton
+            size="small"
+            onClick={() => onDelete(item.id)}
+            sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Paper>
+    </FileDropTarget>
   )
 }
 
@@ -641,7 +649,7 @@ function OverviewTab({
         description="All groups and their items at a glance."
         actions={
           <>
-            <DroppableZone onFileDrop={onAddGroupFromDrop}>
+            <FileDropTarget onFileDrop={onAddGroupFromDrop}>
               <Button
                 startIcon={<AddIcon />}
                 variant="outlined"
@@ -650,8 +658,8 @@ function OverviewTab({
               >
                 Add Group
               </Button>
-            </DroppableZone>
-            <DroppableZone onFileDrop={(fp) => onAddItemFromDrop(fp, lastGroupId)}>
+            </FileDropTarget>
+            <FileDropTarget onFileDrop={(fp) => onAddItemFromDrop(fp, lastGroupId)}>
               <Button
                 startIcon={<AddIcon />}
                 variant="contained"
@@ -661,7 +669,7 @@ function OverviewTab({
               >
                 Add Item
               </Button>
-            </DroppableZone>
+            </FileDropTarget>
           </>
         }
       />
@@ -678,60 +686,62 @@ function OverviewTab({
             const gItems = items.filter((i) => i.groupId === group.id)
             return (
               <Box key={group.id}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 1.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    border: '1px solid rgba(110,231,183,0.2)',
-                    borderRadius: 2,
-                    background: 'rgba(110,231,183,0.04)',
-                    mb: 1
-                  }}
-                >
-                  <IndexBadge index={gIdx} color="primary" />
-                  <ImagePicker
-                    projectDir={projectDir}
-                    desiredNamePrefix={group.id}
-                    value={group.imagePath}
-                    onChange={(p) => onUpdateGroup(group.id, { imagePath: p })}
-                    label="Image"
-                    size={56}
-                  />
-                  <NameField
-                    label="Group name"
-                    value={group.name}
-                    onChange={(v) => onUpdateGroup(group.id, { name: v })}
-                    placeholder="Group name…"
-                  />
-                  <Chip
-                    label={`${gItems.length} item${gItems.length !== 1 ? 's' : ''}`}
-                    size="small"
-                    color="primary"
-                    sx={{ height: 20, fontSize: '0.65rem' }}
-                  />
-                  <DroppableZone onFileDrop={(fp) => onAddItemFromDrop(fp, group.id)}>
-                    <Button
-                      startIcon={<AddIcon />}
-                      variant="contained"
+                <FileDropTarget onFileDrop={(fp) => onUpdateGroup(group.id, { imagePath: fp })}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      border: '1px solid rgba(110,231,183,0.2)',
+                      borderRadius: 2,
+                      background: 'rgba(110,231,183,0.04)',
+                      mb: 1
+                    }}
+                  >
+                    <IndexBadge index={gIdx} color="primary" />
+                    <ImagePicker
+                      projectDir={projectDir}
+                      desiredNamePrefix={group.id}
+                      value={group.imagePath}
+                      onChange={(p) => onUpdateGroup(group.id, { imagePath: p })}
+                      label="Image"
+                      size={56}
+                    />
+                    <NameField
+                      label="Group name"
+                      value={group.name}
+                      onChange={(v) => onUpdateGroup(group.id, { name: v })}
+                      placeholder="Group name…"
+                    />
+                    <Chip
+                      label={`${gItems.length} item${gItems.length !== 1 ? 's' : ''}`}
                       size="small"
-                      onClick={() => onAddItem(group.id)}
-                    >
-                      Add Item
-                    </Button>
-                  </DroppableZone>
-                  <Tooltip title="Delete group">
-                    <IconButton
-                      size="small"
-                      onClick={() => onDeleteGroup(group.id)}
-                      sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Paper>
+                      color="primary"
+                      sx={{ height: 20, fontSize: '0.65rem' }}
+                    />
+                    <FileDropTarget onFileDrop={(fp) => onAddItemFromDrop(fp, group.id)}>
+                      <Button
+                        startIcon={<AddIcon />}
+                        variant="contained"
+                        size="small"
+                        onClick={() => onAddItem(group.id)}
+                      >
+                        Add Item
+                      </Button>
+                    </FileDropTarget>
+                    <Tooltip title="Delete group">
+                      <IconButton
+                        size="small"
+                        onClick={() => onDeleteGroup(group.id)}
+                        sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Paper>
+                </FileDropTarget>
 
                 {gItems.length === 0 ? (
                   <Box
@@ -751,44 +761,48 @@ function OverviewTab({
                 ) : (
                   <Box sx={{ ml: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {gItems.map((item, iIdx) => (
-                      <Paper
+                      <FileDropTarget
                         key={item.id}
-                        elevation={0}
-                        sx={{
-                          p: 1.5,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 2,
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          borderRadius: 2,
-                          background: '#1a1d27'
-                        }}
+                        onFileDrop={(fp) => onUpdateItem(item.id, { imagePath: fp })}
                       >
-                        <IndexBadge index={iIdx} color="secondary" />
-                        <ImagePicker
-                          projectDir={projectDir}
-                          desiredNamePrefix={item.id}
-                          value={item.imagePath}
-                          onChange={(p) => onUpdateItem(item.id, { imagePath: p })}
-                          label="Image"
-                          size={52}
-                        />
-                        <NameField
-                          label="Item name"
-                          value={item.name}
-                          onChange={(v) => onUpdateItem(item.id, { name: v })}
-                          placeholder="Item name…"
-                        />
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            onClick={() => onDeleteItem(item.id)}
-                            sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Paper>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2,
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 2,
+                            background: '#1a1d27'
+                          }}
+                        >
+                          <IndexBadge index={iIdx} color="secondary" />
+                          <ImagePicker
+                            projectDir={projectDir}
+                            desiredNamePrefix={item.id}
+                            value={item.imagePath}
+                            onChange={(p) => onUpdateItem(item.id, { imagePath: p })}
+                            label="Image"
+                            size={52}
+                          />
+                          <NameField
+                            label="Item name"
+                            value={item.name}
+                            onChange={(v) => onUpdateItem(item.id, { name: v })}
+                            placeholder="Item name…"
+                          />
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => onDeleteItem(item.id)}
+                              sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Paper>
+                      </FileDropTarget>
                     ))}
                   </Box>
                 )}
@@ -806,58 +820,62 @@ function OverviewTab({
               </Box>
               <Box sx={{ ml: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {unassigned.map((item, iIdx) => (
-                  <Paper
+                  <FileDropTarget
                     key={item.id}
-                    elevation={0}
-                    sx={{
-                      p: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
-                      border: '1px solid rgba(251,191,36,0.3)',
-                      borderRadius: 2,
-                      background: '#1a1d27'
-                    }}
+                    onFileDrop={(fp) => onUpdateItem(item.id, { imagePath: fp })}
                   >
-                    <IndexBadge index={iIdx} color="warning" />
-                    <ImagePicker
-                      projectDir={projectDir}
-                      desiredNamePrefix={item.id}
-                      value={item.imagePath}
-                      onChange={(p) => onUpdateItem(item.id, { imagePath: p })}
-                      label="Image"
-                      size={52}
-                    />
-                    <NameField
-                      label="Item name"
-                      value={item.name}
-                      onChange={(v) => onUpdateItem(item.id, { name: v })}
-                      placeholder="Item name…"
-                    />
-                    <FormControl size="small" sx={{ minWidth: 140 }} error>
-                      <InputLabel>Assign to group</InputLabel>
-                      <Select
-                        value=""
-                        label="Assign to group"
-                        onChange={(e) => onUpdateItem(item.id, { groupId: e.target.value })}
-                      >
-                        {groups.map((g) => (
-                          <MenuItem key={g.id} value={g.id}>
-                            {g.name || '(unnamed)'}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => onDeleteItem(item.id)}
-                        sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Paper>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        border: '1px solid rgba(251,191,36,0.3)',
+                        borderRadius: 2,
+                        background: '#1a1d27'
+                      }}
+                    >
+                      <IndexBadge index={iIdx} color="warning" />
+                      <ImagePicker
+                        projectDir={projectDir}
+                        desiredNamePrefix={item.id}
+                        value={item.imagePath}
+                        onChange={(p) => onUpdateItem(item.id, { imagePath: p })}
+                        label="Image"
+                        size={52}
+                      />
+                      <NameField
+                        label="Item name"
+                        value={item.name}
+                        onChange={(v) => onUpdateItem(item.id, { name: v })}
+                        placeholder="Item name…"
+                      />
+                      <FormControl size="small" sx={{ minWidth: 140 }} error>
+                        <InputLabel>Assign to group</InputLabel>
+                        <Select
+                          value=""
+                          label="Assign to group"
+                          onChange={(e) => onUpdateItem(item.id, { groupId: e.target.value })}
+                        >
+                          {groups.map((g) => (
+                            <MenuItem key={g.id} value={g.id}>
+                              {g.name || '(unnamed)'}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={() => onDeleteItem(item.id)}
+                          sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 } }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Paper>
+                  </FileDropTarget>
                 ))}
               </Box>
             </Box>

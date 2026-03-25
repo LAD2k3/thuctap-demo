@@ -2,6 +2,7 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import ClearIcon from '@mui/icons-material/Clear'
 import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material'
 import React, { useState } from 'react'
+import { useDropzone } from 'react-dropzone'
 import { useAssetUrl } from '../hooks/useAssetUrl'
 
 interface Props {
@@ -22,7 +23,7 @@ export default function ImagePicker({
   size = 100
 }: Props): React.ReactElement {
   const [loading, setLoading] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
+  // const [dragOver, setDragOver] = useState(false)
   const { data: url } = useAssetUrl(projectDir, value)
 
   const importFile = async (filePath: string): Promise<void> => {
@@ -50,21 +51,18 @@ export default function ImagePicker({
   }
 
   // ── Drag & drop support ──────────────────────────────────────────────────
-  const handleDragOver = (e: React.DragEvent): void => {
-    if (e.dataTransfer.types.includes('Files')) {
-      e.preventDefault()
-      setDragOver(true)
-    }
-  }
-  const handleDragLeave = (): void => setDragOver(false)
-  const handleDrop = async (e: React.DragEvent): Promise<void> => {
-    e.preventDefault()
-    setDragOver(false)
-    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'))
-    if (file) await importFile((file as File & { path: string }).path)
-  }
+  const { getRootProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      const file = acceptedFiles.find((f) => f.type.startsWith('image/'))
+      if (file) {
+        importFile(window.electronAPI.getPathForFile(file))
+      }
+    },
+    disabled: loading,
+    accept: { 'image/*': [] }
+  })
 
-  const isActive = dragOver && !loading
+  const isActive = isDragActive && !loading
 
   return (
     <Tooltip
@@ -73,10 +71,16 @@ export default function ImagePicker({
       }
     >
       <Box
-        onClick={handleClick}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        {...getRootProps()}
+        onClick={(e) => {
+          // react-dropzone handles click by default, but we have a custom handleClick
+          // that uses electronAPI.pickImage. We should probably keep our custom one
+          // but call it from here or let dropzone handle it.
+          // Let's use dropzone's built-in click if possible, or keep our handleClick.
+          // Since we use electronAPI.pickImage, our handleClick is better.
+          e.stopPropagation()
+          handleClick()
+        }}
         sx={{
           width: size,
           height: size,
