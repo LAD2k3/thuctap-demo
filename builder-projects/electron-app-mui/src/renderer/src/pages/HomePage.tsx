@@ -474,6 +474,7 @@ function GameTemplateCard({
           p: 1,
           display: 'flex',
           flexDirection: 'column',
+          gap: 1,
           alignItems: 'stretch',
           height: '100%' // make the clickable area fill the Card
         }}
@@ -509,6 +510,7 @@ function GameTemplateCard({
             pb: '12px !important',
             display: 'flex',
             flexDirection: 'column',
+            gap: 1,
             flexGrow: 1, // this area grows to take available vertical space
             minHeight: 0
           }}

@@ -179,13 +179,13 @@ app.whenReady().then(() => {
     const url = new URL(request.url)
     const sessionId = url.hostname // e.g., session-12345
     const pathName = url.pathname // e.g., /index.html or /css/style.css
-    console.log(`Protocol request: ${request.url}`, { sessionId, pathName })
 
     const session = projectPreviewSessions.get(sessionId)
     if (!session) return new Response('Session expired', { status: 404 })
 
     // Serve HTML from memory
     if (pathName === '/' || pathName === '/index.html') {
+      console.log(`Serving HTML from memory: ${pathName}`)
       return new Response(session.html, {
         headers: { 'Content-Type': 'text/html' }
       })
@@ -193,6 +193,7 @@ app.whenReady().then(() => {
 
     // Serve assets from the specific directory saved for THIS session
     const filePath = path.join(session.gameDir, pathName)
+    console.log(`Serving assets from filePath: ${filePath}`)
     return net.fetch(`file://${filePath}`)
   })
 
@@ -361,14 +362,14 @@ ipcMain.handle('preview-project', async (_, opts) => {
   const devInjectedHtml = injectedHtml.replace(
     '</body>',
     `<script>
-    window.__PREVIEW_DEBUG__ = {
-      sessionId: '${sessionId}',
-      templateId: '${templateId}',
-      gameDir: '${gameDir}',
-      projectDir: '${projectDir}',
-      timestamp: ${Date.now()},
-      appData: ${JSON.stringify(appData)}
-    };
+    window.__PREVIEW_DEBUG__ = ${JSON.stringify({
+      sessionId,
+      templateId,
+      gameDir,
+      projectDir,
+      timestamp: Date.now(),
+      appData
+    })}
     </script>
     </body>`
   )

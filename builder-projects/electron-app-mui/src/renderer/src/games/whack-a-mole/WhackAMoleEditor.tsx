@@ -371,7 +371,8 @@ function QuestionCard({
             letterSpacing: 1.2,
             fontSize: '0.65rem',
             lineHeight: 1,
-            mb: 0.5
+            mb: 0.5,
+            pl: 1
           }}
         >
           Correct Answer (The mole students should whack)
