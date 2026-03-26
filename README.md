@@ -4,6 +4,25 @@ A desktop app (Electron) for non-technical English teachers to create custom cla
 
 ---
 
+## Documentation
+
+### For Developers Extending the Builder
+
+If you're planning to add new games or modify the builder's code, start here:
+
+- **[Builder README](builder-projects/electron-app-mui/README.md)** — Comprehensive guide to the builder's architecture, TypeScript type system, IPC communication, and step-by-step instructions for adding new games.
+- **[Builder README (Vietnamese)](builder-projects/electron-app-mui/README_vi.md)** — Bản hướng dẫn chi tiết về kiến trúc, hệ thống kiểu, giao tiếp IPC và hướng dẫn thêm trò chơi mới.
+
+### Quick Links
+
+| Document | Description |
+|----------|-------------|
+| [This README](#readme) | Overview of the project structure and game template requirements |
+| [Builder README](builder-projects/electron-app-mui/README.md) | Deep dive into the Electron app codebase (recommended for developers) |
+| [Game Template Requirements](#game-template-requirements) | Technical requirements for game templates |
+
+---
+
 ## Repository Layout
 
 ```

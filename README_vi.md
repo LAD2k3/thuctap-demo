@@ -4,6 +4,25 @@
 
 ---
 
+## Tài liệu
+
+### Dành cho Nhà phát triển Mở rộng Builder
+
+Nếu bạn đang có ý định thêm trò chơi mới hoặc sửa đổi code của builder, hãy bắt đầu từ đây:
+
+- **[Builder README](builder-projects/electron-app-mui/README.md)** — Hướng dẫn toàn diện về kiến trúc, hệ thống kiểu TypeScript, giao tiếp IPC và hướng dẫn từng bước để thêm trò chơi mới.
+- **[Builder README (Vietnamese)](builder-projects/electron-app-mui/README_vi.md)** — Bản hướng dẫn chi tiết về kiến trúc, hệ thống kiểu, giao tiếp IPC và hướng dẫn thêm trò chơi mới.
+
+### Liên kết Nhanh
+
+| Tài liệu | Mô tả |
+|----------|-------|
+| [README này](#readme) | Tổng quan về cấu trúc dự án và yêu cầu game template |
+| [Builder README](builder-projects/electron-app-mui/README.md) | Đi sâu vào codebase của ứng dụng Electron (khuyến nghị cho nhà phát triển) |
+| [Yêu cầu Game Template](#yêu-cầu-đối-với-game-template) | Yêu cầu kỹ thuật cho các game template |
+
+---
+
 ## Cấu trúc dự án
 
 ```

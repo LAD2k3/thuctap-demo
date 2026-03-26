@@ -29,7 +29,7 @@ import {
 import { JSX, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GAME_REGISTRY } from '../games/registry'
-import { GameTemplate, RecentProject } from '../types'
+import { GameTemplate, GlobalSettings, RecentProject } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -47,13 +47,15 @@ function timeAgo(dateStr: string): string {
 }
 
 async function readRecentProjects(): Promise<RecentProject[]> {
-  const s = (await window.electronAPI.settingsReadGlobal()) as Record<string, unknown>
-  return (s.recentProjects as RecentProject[] | undefined) ?? []
+  const s = await window.electronAPI.settingsReadGlobal()
+  return (
+    ((s as unknown as Record<string, unknown>).recentProjects as RecentProject[] | undefined) ?? []
+  )
 }
 
 async function writeRecentProjects(list: RecentProject[]): Promise<void> {
-  const s = (await window.electronAPI.settingsReadGlobal()) as Record<string, unknown>
-  await window.electronAPI.settingsWriteGlobal({ ...s, recentProjects: list })
+  const s = await window.electronAPI.settingsReadGlobal()
+  await window.electronAPI.settingsWriteGlobal({ ...s, recentProjects: list } as GlobalSettings)
 }
 
 async function addRecentProject(entry: RecentProject): Promise<void> {
