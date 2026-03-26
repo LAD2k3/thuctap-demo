@@ -11,7 +11,6 @@ import {
   Divider,
   IconButton,
   Paper,
-  Tooltip,
   Typography
 } from '@mui/material'
 import { useEditorShortcuts } from '@renderer/hooks/useEditorShortcuts'
@@ -246,6 +245,7 @@ function SummaryRow({ label, value }: { label: string; value: number }): React.R
     </Box>
   )
 }
+
 function QuestionCard({
   question,
   index,
@@ -261,18 +261,14 @@ function QuestionCard({
   onUpdate: (id: string, p: Partial<WhackAMoleQuestion>) => void
   onDelete: (id: string) => void
 }): React.ReactElement {
-  // Define a consistent grid for both rows
-  // Col 1: Index/Label (~40px)
-  // Col 2: Image (80px)
-  // Col 3: Input field (flexible)
-  // Col 4: Trash icon/Spacer (40px)
-  const gridLayout = {
+  // Shared subgrid style for the drop target wrappers
+  const subgridStyle = {
+    gridColumn: '1 / -1', // Spans all 4 columns of the Paper
     display: 'grid',
-    gridTemplateColumns: '40px 80px 1fr 40px',
-    gap: 2,
+    gridTemplateColumns: 'subgrid', // Inherits tracks from Paper
     alignItems: 'start',
-    px: 2,
-    py: 2
+    gap: 2,
+    p: 2
   }
 
   return (
@@ -282,115 +278,119 @@ function QuestionCard({
         border: '1px solid rgba(255,255,255,0.06)',
         borderRadius: 2,
         background: '#1a1d27',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        // ── MASTER GRID DEFINITION ──
+        display: 'grid',
+        gridTemplateColumns: 'min-content min-content 1fr min-content',
+        alignItems: 'start'
       }}
     >
-      {/* ── QUESTION ROW ────────────────────────────────────────────────── */}
+      {/* ── ROW 1: QUESTION ────────────────────────────────────────── */}
       <FileDropTarget
         onFileDrop={async (fp) => {
           const rel = await window.electronAPI.importImage(fp, projectDir, question.id)
           onUpdate(question.id, { questionImage: rel })
         }}
+        sx={subgridStyle}
       >
-        <Box sx={gridLayout}>
-          {/* Col 1: Index */}
-          <Box sx={{ mt: 0.5 }}>
-            <IndexBadge index={index} color="primary" />
-          </Box>
-
-          {/* Col 2: Image */}
-          <ImagePicker
-            projectDir={projectDir}
-            desiredNamePrefix={`${question.id}-question`}
-            value={question.questionImage}
-            onChange={(p) => onUpdate(question.id, { questionImage: p })}
-            label="Question image"
-            size={80}
-          />
-
-          {/* Col 3: Input + Description */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <NameField
-              label="Question text"
-              value={question.question}
-              onChange={(v) => onUpdate(question.id, { question: v })}
-              placeholder="e.g. Con chuột đang ở vị trí nào?"
-              autoFocus={autoFocus}
-              multiline
-            />
-            <Typography variant="caption" color="text.secondary">
-              This question will be displayed to students.
-            </Typography>
-          </Box>
-
-          {/* Col 4: Actions */}
-          <Tooltip title="Delete question">
-            <IconButton
-              size="small"
-              onClick={() => onDelete(question.id)}
-              sx={{ color: 'error.main', opacity: 0.6, '&:hover': { opacity: 1 }, mt: 1 }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+        {/* Col 1 */}
+        <Box sx={{ mt: 0.5 }}>
+          <IndexBadge index={index} color="primary" />
         </Box>
+
+        {/* Col 2 */}
+        <ImagePicker
+          projectDir={projectDir}
+          desiredNamePrefix={`${question.id}-question`}
+          value={question.questionImage}
+          onChange={(p) => onUpdate(question.id, { questionImage: p })}
+          label="Question"
+          size={80}
+        />
+
+        {/* Col 3 */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <NameField
+            label="Question text"
+            value={question.question}
+            onChange={(v) => onUpdate(question.id, { question: v })}
+            placeholder="e.g. Con chuột đang ở vị trí nào?"
+            autoFocus={autoFocus}
+            multiline
+          />
+          <Typography variant="caption" color="text.secondary">
+            This question will be displayed to students.
+          </Typography>
+        </Box>
+
+        {/* Col 4 */}
+        <IconButton
+          size="small"
+          onClick={() => onDelete(question.id)}
+          sx={{
+            color: 'error.main',
+            opacity: 0.6,
+            '&:hover': { opacity: 1 },
+            mt: 1,
+            justifySelf: 'center'
+          }}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
       </FileDropTarget>
 
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+      {/* ── ROW 2: HEADING (Aligned with Badge) ─────────────────────── */}
+      <Box sx={{ gridColumn: '1 / 4', px: 2, py: 0.5 }}>
+        <Typography
+          variant="overline"
+          sx={{
+            color: '#6ee7b7', // Subtle mint color for "Correct"
+            fontWeight: 700,
+            letterSpacing: 1.2,
+            fontSize: '0.65rem'
+          }}
+        >
+          Correct Answer (The mole students should whack)
+        </Typography>
+      </Box>
 
-      {/* ── ANSWER ROW ──────────────────────────────────────────────────── */}
+      {/* ── ROW 3: ANSWER ───────────────────────────────────────────── */}
       <FileDropTarget
         onFileDrop={async (fp) => {
           const rel = await window.electronAPI.importImage(fp, projectDir, `${question.id}-answer`)
           onUpdate(question.id, { answerImage: rel })
         }}
+        sx={{ ...subgridStyle, pt: 1 }}
       >
-        <Box sx={{ ...gridLayout, pt: 1 }}>
-          {' '}
-          {/* Reduced top padding because of the label above */}
-          {/* Col 1: Empty (The header sits above the grid or spans) */}
-          <Box />
-          {/* Col 2: Image */}
-          <ImagePicker
-            projectDir={projectDir}
-            desiredNamePrefix={`${question.id}-answer`}
-            value={question.answerImage}
-            onChange={(p) => onUpdate(question.id, { answerImage: p })}
-            label="Answer image"
-            size={80}
+        {/* Col 1: Empty (stays aligned with Badge width) */}
+        <Box />
+
+        {/* Col 2 */}
+        <ImagePicker
+          projectDir={projectDir}
+          desiredNamePrefix={`${question.id}-answer`}
+          value={question.answerImage}
+          onChange={(p) => onUpdate(question.id, { answerImage: p })}
+          label="Answer"
+          size={80}
+        />
+
+        {/* Col 3 */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <NameField
+            label="Answer text"
+            value={question.answerText}
+            onChange={(v) => onUpdate(question.id, { answerText: v })}
+            placeholder="e.g. Dưới đất"
+            multiline={false}
           />
-          {/* Col 3: Input + Header + Description */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography
-              variant="overline"
-              sx={{
-                fontSize: '0.65rem',
-                fontWeight: 700,
-                lineHeight: 1,
-                letterSpacing: 1.5,
-                color: 'primary.main',
-                mb: 0.5
-              }}
-            >
-              Correct Answer (The mole to whack)
-            </Typography>
-
-            <NameField
-              label="Answer text"
-              value={question.answerText}
-              onChange={(v) => onUpdate(question.id, { answerText: v })}
-              placeholder="e.g. Dưới đất"
-              autoFocus={false}
-              multiline={false} // Force one line
-            />
-
-            <Typography variant="caption" color="text.secondary">
-              In the game, this mole will appear among other decoy moles.
-            </Typography>
-          </Box>
-          {/* Col 4: Spacer (Keeps the Input width aligned with the one above) */}
-          <Box sx={{ width: 40 }} />
+          <Typography variant="caption" color="text.secondary">
+            In the game, this mole will appear among other decoy moles.
+          </Typography>
         </Box>
+
+        {/* Col 4: Empty (prevents input from stretching into Trash icon area) */}
+        <Box />
       </FileDropTarget>
     </Paper>
   )

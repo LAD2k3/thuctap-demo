@@ -2,7 +2,7 @@
  * Shared primitives used by both GroupSortEditor and QuizEditor.
  * Keep this file free of game-specific logic.
  */
-import { Badge, Box, Chip, TextField, Typography } from '@mui/material'
+import { Badge, Box, Chip, SxProps, TextField, Typography } from '@mui/material'
 import { JSX, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 
@@ -122,7 +122,7 @@ export function NameField({
   placeholder?: string
   autoFocus?: boolean
   multiline?: boolean
-  sx?: object
+  sx?: SxProps
 }): JSX.Element {
   const didSelect = useRef(false)
   const handleRef = useCallback(
@@ -294,7 +294,7 @@ export function FileDropTarget({
 }: {
   onFileDrop: (filePath: string) => void
   children: React.ReactNode
-  sx?: object
+  sx?: SxProps
   disabled?: boolean
 }): JSX.Element {
   const { getRootProps, isDragActive } = useDropzone({

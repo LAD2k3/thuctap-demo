@@ -1,6 +1,6 @@
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import ClearIcon from '@mui/icons-material/Clear'
-import { Box, CircularProgress, IconButton, Tooltip, Typography } from '@mui/material'
+import { Box, CircularProgress, IconButton, SxProps, Tooltip, Typography } from '@mui/material'
 import React, { useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useAssetUrl } from '../hooks/useAssetUrl'
@@ -12,6 +12,7 @@ interface Props {
   onChange: (relativePath: string | null) => void
   label?: string
   size?: number
+  sx?: SxProps
 }
 
 export default function ImagePicker({
@@ -20,7 +21,8 @@ export default function ImagePicker({
   value,
   onChange,
   label,
-  size = 100
+  size = 100,
+  sx
 }: Props): React.ReactElement {
   const [loading, setLoading] = useState(false)
   const { data: url } = useAssetUrl(projectDir, value)
@@ -113,7 +115,8 @@ export default function ImagePicker({
               : 'rgba(255,255,255,0.02)',
           transition: 'border-color 0.15s, background 0.15s',
           flexShrink: 0,
-          '&:hover': { borderColor: 'primary.main', background: 'rgba(110,231,183,0.04)' }
+          '&:hover': { borderColor: 'primary.main', background: 'rgba(110,231,183,0.04)' },
+          ...sx
         }}
       >
         {loading ? (
