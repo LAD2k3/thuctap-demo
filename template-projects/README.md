@@ -165,13 +165,11 @@ Quick steps:
 
 ## For AI Chatbots
 
-**Context**: This directory contains independent web applications. Each is a complete game that:
+**Context**: This directory (`template-projects/`) contains the **source code** for all game templates. Each is an independent web application with its own `package.json`, dependencies, and build process.
 
-- Has its own `package.json`, dependencies, and build process
-- Is NOT a module of the main Electron app
-- Produces build output that gets copied into the builder
+**Important**: The built output lives in `builder-projects/electron-app-mui/templates/<game-id>/game/`. Those folders contain **only minified/bundled `index.html` files** (and optionally an `images/` folder). There is no useful source code to read in those build output folders — they exist solely for runtime use by the Electron app. **Always read from `template-projects/<game-id>/`** to understand the game logic and source code. Reading the `game/` folder contents will waste your context window with minified code.
 
-**Key Files**:
+**Key Files** (in each `template-projects/<game-id>/` folder):
 
 - `meta.json` — Template registration (name, description, gameType)
 - `vite.config.ts` — Build configuration
@@ -180,7 +178,7 @@ Quick steps:
 
 **Build Command**: `yarn build` (in each template directory)
 
-**Output**: Single `index.html` + `images/` folder
+**Output**: Single `index.html` + `images/` folder (copied to `builder-projects/electron-app-mui/templates/`)
 
 ## Troubleshooting
 

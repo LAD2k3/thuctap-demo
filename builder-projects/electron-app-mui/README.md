@@ -610,6 +610,8 @@ await window.electronAPI.settingsWriteGlobal({
 
 ---
 
+> ⚠️ **Note for AI Chatbots**: The `templates/` folder in this project contains **built and minified output** only. Each `<game-id>/game/` subfolder contains a single bundled `index.html` file (and optionally an `images/` folder). There are no source code files to read in these build output folders — they exist solely for runtime use by the Electron app. For understanding the game logic and source code, read the files in `template-projects/<game-id>/` instead. Reading the `game/` folder contents will waste your context window with minified/bundled code.
+
 ## Troubleshooting
 
 ### "Module not found" Errors

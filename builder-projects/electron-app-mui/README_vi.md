@@ -611,6 +611,8 @@ await window.electronAPI.settingsWriteGlobal({
 
 ---
 
+> ⚠️ **Lưu ý cho AI Chatbots**: Thư mục `templates/` trong dự án này chỉ chứa **đầu ra đã build và thu gọn (minified)**. Mỗi thư mục con `<game-id>/game/` chỉ chứa một tệp `index.html` được bundle duy nhất (và tùy chọn là một thư mục `images/`). Không có tệp mã nguồn nào để đọc trong các thư mục đầu ra build này — chúng chỉ tồn tại để sử dụng runtime bởi ứng dụng Electron. Để hiểu logic trò chơi và mã nguồn, hãy đọc các tệp trong `template-projects/<game-id>/` thay thế. Đọc nội dung thư mục `game/` sẽ lãng phí bộ nhớ context của bạn với mã đã thu gọn/bundle.
+
 ## Xử lý Sự cố
 
 ### Lỗi "Module not found"

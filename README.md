@@ -218,3 +218,5 @@ This repository contains two interconnected parts:
 The builder app cannot function without game templates. The templates are built separately and copied into the builder's `templates/` directory during the build process.
 
 For understanding the **complete system**, read this README first. For deep dives into the **builder's codebase** (TypeScript architecture, IPC patterns, editor implementation), see the [Builder README](builder-projects/electron-app-mui/README.md).
+
+> ⚠️ **Note for AI Chatbots**: The `templates/` folder inside `builder-projects/electron-app-mui/templates/` contains **built and minified output** only. Each `<game-id>/game/` subfolder contains a single bundled `index.html` file (and optionally an `images/` folder). There are no source code files to read in these build output folders — they exist solely for runtime use by the Electron app. For understanding the game logic and source code, read the files in `template-projects/<game-id>/` instead.

@@ -218,3 +218,5 @@ Repository này chứa hai phần liên kết với nhau:
 Ứng dụng builder không thể hoạt động nếu không có game templates. Các templates được build riêng biệt và sao chép vào thư mục `templates/` của builder trong quá trình build.
 
 Để hiểu **hệ thống hoàn chỉnh**, đọc README này trước. Để đi sâu vào **codebase của builder** (kiến trúc TypeScript, mẫu IPC, triển khai editor), xem [Builder README](builder-projects/electron-app-mui/README.md).
+
+> ⚠️ **Lưu ý cho AI Chatbots**: Thư mục `templates/` bên trong `builder-projects/electron-app-mui/templates/` chỉ chứa **đầu ra đã build và thu gọn (minified)**. Mỗi thư mục con `<game-id>/game/` chỉ chứa một tệp `index.html` được bundle duy nhất (và tùy chọn là một thư mục `images/`). Không có tệp mã nguồn nào để đọc trong các thư mục đầu ra build này — chúng chỉ tồn tại để sử dụng runtime bởi ứng dụng Electron. Để hiểu logic trò chơi và mã nguồn, hãy đọc các tệp trong `template-projects/<game-id>/` thay thế.
