@@ -5,13 +5,7 @@
  * that is exposed to the renderer process via contextBridge.
  */
 
-import type {
-  GameTemplate,
-  FolderStatus,
-  ProjectFile,
-  GlobalSettings,
-  AnyAppData
-} from '../shared'
+import type { GameTemplate, FolderStatus, ProjectFile, GlobalSettings } from '../shared'
 
 export interface ElectronAPI {
   // Templates
@@ -34,7 +28,11 @@ export interface ElectronAPI {
 
   // Assets
   pickImage: () => Promise<string | null>
-  importImage: (sourcePath: string, projectDir: string, desiredNamePrefix: string) => Promise<string>
+  importImage: (
+    sourcePath: string,
+    projectDir: string,
+    desiredNamePrefix: string
+  ) => Promise<string>
   resolveAssetUrl: (projectDir: string, relativePath: string) => Promise<string>
 
   // Settings
