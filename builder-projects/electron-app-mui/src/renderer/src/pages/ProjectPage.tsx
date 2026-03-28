@@ -136,11 +136,18 @@ export default function ProjectPage(): JSX.Element {
   )
 
   // ── Save ─────────────────────────────────────────────────────────────────
-  const doSave = useCallback(async (currentMeta: ProjectMeta, appData: AnyAppData) => {
-    const file = buildProjectFile(currentMeta, appData)
-    await window.electronAPI.saveProject(file, currentMeta.filePath)
-    setIsDirty(false)
-  }, [])
+  const doSave = useCallback(
+    async (currentMeta: ProjectMeta, appData: AnyAppData) => {
+      const file = buildProjectFile(currentMeta, appData)
+      // Pass history states so purging considers undo/redo stack
+      await window.electronAPI.saveProject(file, currentMeta.filePath, {
+        past: history.past,
+        future: history.future
+      })
+      setIsDirty(false)
+    },
+    [history.past, history.future]
+  )
 
   const performSaveAs = useCallback(
     async (folder: string): Promise<void> => {
@@ -149,7 +156,11 @@ export default function ProjectPage(): JSX.Element {
         const newLoc = await window.electronAPI.doSaveAs({
           projectData: buildProjectFile(meta, history.present),
           oldProjectDir: meta.projectDir,
-          newFolder: folder
+          newFolder: folder,
+          historyStates: {
+            past: history.past,
+            future: history.future
+          }
         })
         setMeta((prev) =>
           prev ? { ...prev, filePath: newLoc.filePath, projectDir: newLoc.projectDir } : prev
@@ -161,7 +172,7 @@ export default function ProjectPage(): JSX.Element {
         showSnack(`Save As failed: ${e}`, 'error')
       }
     },
-    [meta, history.present, showSnack]
+    [meta, history.present, history.past, history.future, showSnack]
   )
 
   // ── Auto-save ─────────────────────────────────────────────────────────────

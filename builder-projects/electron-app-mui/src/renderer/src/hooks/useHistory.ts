@@ -4,6 +4,8 @@ const MAX_HISTORY = 50
 
 export interface HistoryState<T> {
   present: T
+  past: T[]
+  future: T[]
   canUndo: boolean
   canRedo: boolean
   push: (next: T) => void
@@ -57,5 +59,15 @@ export function useHistory<T>(initial: T): HistoryState<T> {
     setFuture([])
   }, [])
 
-  return { present, canUndo: past.length > 0, canRedo: future.length > 0, push, undo, redo, reset }
+  return {
+    present,
+    past,
+    future,
+    canUndo: past.length > 0,
+    canRedo: future.length > 0,
+    push,
+    undo,
+    redo,
+    reset
+  }
 }
