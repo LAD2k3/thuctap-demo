@@ -3,7 +3,7 @@ import CollectionsIcon from '@mui/icons-material/Collections'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SettingsIcon from '@mui/icons-material/Settings'
 import { Alert, Box, Button, Collapse, IconButton, Paper, Tooltip, Typography } from '@mui/material'
-import { useAddShortcut } from '@renderer/hooks/useAddShortcut'
+import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { useCallback, useState } from 'react'
 import {
   AtoZWordField,
@@ -86,7 +86,7 @@ export default function WordSearchEditor({
     [data, items, onChange]
   )
 
-  useAddShortcut({
+  useEntityCreateShortcut({
     onTier1: addItem
   })
 

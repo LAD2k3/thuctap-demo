@@ -14,7 +14,7 @@ import {
   Tooltip,
   Typography
 } from '@mui/material'
-import { useAddShortcut } from '@renderer/hooks/useAddShortcut'
+import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { JSX, useCallback, useState } from 'react'
 import {
   EmptyState,
@@ -97,7 +97,7 @@ export default function PairMatchingEditor({
     [data, items, onChange]
   )
 
-  useAddShortcut({
+  useEntityCreateShortcut({
     onTier1: addItem
   })
 

@@ -31,7 +31,6 @@ import {
   Typography
 } from '@mui/material'
 import { JSX, useCallback, useEffect, useRef, useState } from 'react'
-import { useHotkeys } from 'react-hotkeys-hook'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import SettingsPanel from '../components/SettingsPanel'
 import { useSettings } from '../context/SettingsContext'
@@ -286,51 +285,16 @@ export default function ProjectPage(): JSX.Element {
   }
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  // Undo/Redo: Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z
-  useHotkeys(
-    'ctrl+z',
-    (e) => {
-      if (e.shiftKey) return // Let ctrl+shift+z handle redo
-      if (!history.canUndo) return
-      e.preventDefault()
-      history.undo()
-    },
-    { enableOnFormTags: false, enabled: history.canUndo }
-  )
-
-  useHotkeys(
-    'ctrl+y, ctrl+shift+z',
-    (e) => {
-      if (!history.canRedo) return
-      e.preventDefault()
-      history.redo()
-    },
-    { enableOnFormTags: false, enabled: history.canRedo }
-  )
-
-  // Save: Ctrl+S
-  useHotkeys(
-    'ctrl+s',
-    (e) => {
-      if (e.shiftKey) return // Let ctrl+shift+s handle Save As
-      e.preventDefault()
-      handleSave()
-    },
-    { enableOnFormTags: false }
-  )
-
-  // Save As: Ctrl+Shift+S
-  useHotkeys(
-    'ctrl+shift+s',
-    (e) => {
-      e.preventDefault()
-      handleSaveAs()
-    },
-    { enableOnFormTags: false }
-  )
-
-  // Project actions: Preview and Export
   useProjectShortcuts({
+    // Navigation
+    onUndo: history.canUndo ? history.undo : undefined,
+    onRedo: history.canRedo ? history.redo : undefined,
+
+    // File operations
+    onSave: handleSave,
+    onSaveAs: handleSaveAs,
+
+    // Preview and Export
     onPreview: handlePreview,
     onExportFolder: () => handleExport('folder'),
     onExportZip: () => handleExport('zip')

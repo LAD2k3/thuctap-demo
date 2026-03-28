@@ -13,7 +13,7 @@ import {
   Paper,
   Typography
 } from '@mui/material'
-import { useAddShortcut } from '@renderer/hooks/useAddShortcut'
+import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import React, { useCallback } from 'react'
 import {
   EmptyState,
@@ -99,7 +99,7 @@ export default function WhackAMoleEditor({
   )
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  useAddShortcut({
+  useEntityCreateShortcut({
     onTier1: addQuestion
   })
 

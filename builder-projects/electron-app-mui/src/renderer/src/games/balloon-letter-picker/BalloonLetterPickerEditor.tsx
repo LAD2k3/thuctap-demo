@@ -14,7 +14,7 @@ import {
   Tooltip,
   Typography
 } from '@mui/material'
-import { useAddShortcut } from '@renderer/hooks/useAddShortcut'
+import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { JSX, useCallback } from 'react'
 import {
   AtoZWordField,
@@ -101,7 +101,7 @@ export default function BalloonLetterPickerEditor({
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   // Only one unit (word), all tiers do the same
-  useAddShortcut({
+  useEntityCreateShortcut({
     onTier1: addWord
   })
 
