@@ -1,10 +1,8 @@
-import { applyPatch, compare, Operation } from 'fast-json-patch'
-import { useCallback, useState } from 'react'
 import log from 'electron-log/renderer'
+import { useEffect, useRef } from 'react'
+import { createHistoryStore, HistoryStoreType } from '../stores/historyStore'
 
-const MAX_HISTORY = 50
-
-export interface HistoryState<T> {
+export interface HistoryState<T extends object> {
   present: T
   canUndo: boolean
   canRedo: boolean
@@ -12,131 +10,73 @@ export interface HistoryState<T> {
   undo: () => void
   redo: () => void
   reset: (next: T) => void
-  past: Operation[][]
-  future: Operation[][]
   getReachableStates: () => T[]
 }
 
 /**
- * Applies a list of JSON Patch operations to a base object.
+ * Hook-based wrapper around the zustand history store.
+ * This provides a simple API for undo/redo functionality using snapshot-based history.
  */
-export function applyJSONPatch<T>(base: T, ops: Operation[]): T {
-  // fast-json-patch can mutate, so we clone first
-  const cloned = JSON.parse(JSON.stringify(base))
-  return applyPatch(cloned, ops).newDocument
-}
+export function useProjectHistory<T extends object>(initial: T): HistoryState<T> {
+  const storeRef = useRef<HistoryStoreType<T> | null>(null)
+  
+  // Initialize store once
+  if (!storeRef.current) {
+    storeRef.current = createHistoryStore<T>(initial)
+  }
 
-/**
- * Inverts a JSON Patch set. Note: Inverting JSON Patch is complex if
- * previous values aren't stored. However, for 'replace' and 'remove',
- * we can often find the old value if we specifically track it or use
- * a diffing tool that provides it.
- *
- * Fortunately, fast-json-patch 'compare' doesn't provide 'oldValue'
- * automatically in the RFC 6902 sense, but we can generate inverses
- * by diffing backwards.
- */
+  const store = storeRef.current
 
-export function useProjectHistory<T extends object>(
-  initial: T,
-  initialPast: Operation[][] = [],
-  initialFuture: Operation[][] = []
-): HistoryState<T> {
-  const [past, setPast] = useState<Operation[][]>(initialPast)
-  const [present, setPresent] = useState<T>(initial)
-  const [future, setFuture] = useState<Operation[][]>(initialFuture)
+  // Sync initial value if it changes (e.g., loading a new file)
+  useEffect(() => {
+    const state = store.getState()
+    // Only reset if the initial value is different and we have no history
+    if (state.past.length === 0 && state.future.length === 0) {
+      store.getState().reset(initial)
+    } else if (JSON.stringify(state.present) !== JSON.stringify(initial)) {
+      // If loading a completely different project, reset
+      // This is a simple heuristic - in practice, ProjectPage should handle this
+      store.getState().reset(initial)
+    }
+  }, [initial, store])
 
-  const push = useCallback(
-    (next: T) => {
-      const ops = compare(present, next)
-      if (ops.length === 0) return
+  const push = (next: T) => {
+    log.debug('useProjectHistory: pushing new state')
+    store.getState().set(next)
+  }
 
-      log.debug('useProjectHistory: pushing new state', ops)
-
-      setPast((p) => {
-        const appended = [...p, ops]
-        if (appended.length > MAX_HISTORY) return appended.slice(appended.length - MAX_HISTORY)
-        return appended
-      })
-      setPresent(next)
-      setFuture([])
-    },
-    [present]
-  )
-
-  const undo = useCallback(() => {
-    if (past.length === 0) return
+  const undo = () => {
     log.info('useProjectHistory: undo')
+    store.getState().undo()
+  }
 
-    // To undo with JSON patch robustly, we reconstruct the previous state
-    // by playing history from the beginning or storing inverse patches.
-    // For simplicity and correctness with RFC 6902, we reconstruct from start or previous points.
-
-    const allPast = [...past]
-    const lastOpSet = allPast.pop()!
-
-    // Reconstruct previous state from scratch (or use a more optimized approach)
-    // Here we'll just reconstruct the entire stack for safety
-    let state = initial
-    for (const ops of allPast) {
-      state = applyJSONPatch(state, ops)
-    }
-
-    setFuture((f) => [lastOpSet, ...f])
-    setPresent(state)
-    setPast(allPast)
-  }, [past, initial])
-
-  const redo = useCallback(() => {
-    if (future.length === 0) return
+  const redo = () => {
     log.info('useProjectHistory: redo')
+    store.getState().redo()
+  }
 
-    const ops = future[0]
-    const nextPresent = applyJSONPatch(present, ops)
-
-    setPast((p) => [...p, ops])
-    setPresent(nextPresent)
-    setFuture((f) => f.slice(1))
-  }, [future, present])
-
-  const reset = useCallback((next: T) => {
+  const reset = (next: T) => {
     log.info('useProjectHistory: reset')
-    setPast([])
-    setPresent(next)
-    setFuture([])
-  }, [])
+    store.getState().reset(next)
+  }
 
-  const getReachableStates = useCallback(() => {
-    // Reachable equals all points in past + present + future
-    let walk = initial
-    const states: T[] = [walk]
+  const getReachableStates = () => {
+    return store.getState().getReachableStates()
+  }
 
-    // Past states
-    for (const ops of past) {
-      walk = applyJSONPatch(walk, ops)
-      states.push(walk)
-    }
-
-    // Future states
-    walk = present
-    for (const ops of future) {
-      walk = applyJSONPatch(walk, ops)
-      states.push(walk)
-    }
-
-    return states
-  }, [initial, past, present, future])
+  // Subscribe to state changes for canUndo/canRedo and present
+  const present = store((state) => state.present)
+  const canUndo = store((state) => state.past.length > 0)
+  const canRedo = store((state) => state.future.length > 0)
 
   return {
     present,
-    canUndo: past.length > 0,
-    canRedo: future.length > 0,
+    canUndo,
+    canRedo,
     push,
     undo,
     redo,
     reset,
-    past,
-    future,
     getReachableStates
   }
 }

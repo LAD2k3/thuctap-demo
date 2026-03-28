@@ -31,7 +31,6 @@ import {
   Typography
 } from '@mui/material'
 import log from 'electron-log/renderer'
-import { Operation } from 'fast-json-patch'
 import { JSX, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import SettingsPanel from '../components/SettingsPanel'
@@ -50,23 +49,17 @@ function buildTitle(templateId: string, projectName: string, filePath: string): 
 function buildProjectFile(
   meta: ProjectMeta,
   appData: AnyAppData,
-  historyPast?: Operation[][],
-  historyFuture?: Operation[][],
   assets?: string[]
 ): ProjectFile {
   return {
-    version: meta.name ? '1.2.0' : '1.2.0', // always same, could track version
+    version: '1.1.0',
     templateId: meta.templateId,
     name: meta.name,
     createdAt: meta.createdAt,
     updatedAt: new Date().toISOString(),
     settings: meta.settings,
     appData,
-    assets,
-    history: {
-      past: historyPast || [],
-      future: historyFuture || []
-    }
+    assets
   }
 }
 
@@ -101,11 +94,7 @@ export default function ProjectPage(): JSX.Element {
   const [templates, setTemplates] = useState<GameTemplate[]>([])
 
   // History tracks only the game data, not meta
-  const history = useProjectHistory<AnyAppData>(
-    locationState?.data.appData ?? ({} as AnyAppData),
-    locationState?.data.history?.past as Operation[][],
-    locationState?.data.history?.future as Operation[][]
-  )
+  const history = useProjectHistory<AnyAppData>(locationState?.data.appData ?? ({} as AnyAppData))
 
   // Explicit Asset Tracking
   const explicitAssetsRef = useRef<Set<string>>(new Set(locationState?.data.assets || []))
@@ -173,13 +162,7 @@ export default function ProjectPage(): JSX.Element {
       // Prune list
       explicitAssetsRef.current = new Set(reachableExplicitAssets)
 
-      const file = buildProjectFile(
-        currentMeta,
-        appData,
-        history.past,
-        history.future,
-        reachableExplicitAssets
-      )
+      const file = buildProjectFile(currentMeta, appData, reachableExplicitAssets)
       await window.electronAPI.saveProject(file, currentMeta.filePath)
       setIsDirty(false)
     },
@@ -193,8 +176,6 @@ export default function ProjectPage(): JSX.Element {
         const file = buildProjectFile(
           meta,
           history.present,
-          history.past,
-          history.future,
           Array.from(explicitAssetsRef.current)
         )
         const newLoc = await window.electronAPI.doSaveAs({
@@ -212,7 +193,7 @@ export default function ProjectPage(): JSX.Element {
         showSnack(`Save As failed: ${e}`, 'error')
       }
     },
-    [meta, history.present, history.past, history.future, showSnack]
+    [meta, history.present, showSnack]
   )
 
   // ── Auto-save ─────────────────────────────────────────────────────────────
@@ -266,8 +247,6 @@ export default function ProjectPage(): JSX.Element {
     const file = buildProjectFile(
       meta,
       history.present,
-      history.past,
-      history.future,
       Array.from(explicitAssetsRef.current)
     )
     const result = await window.electronAPI.saveProjectAs({
@@ -283,7 +262,7 @@ export default function ProjectPage(): JSX.Element {
       }
     }
     await performSaveAs(result.folder)
-  }, [meta, history.present, history.past, history.future, showSnack, performSaveAs])
+  }, [meta, history.present, showSnack, performSaveAs])
 
   // ── Export / Preview ───────────────────────────────────────────────────────
   const handleExport = async (mode: 'folder' | 'zip'): Promise<void> => {

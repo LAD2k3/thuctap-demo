@@ -1,35 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import {
-  DEFAULT_GLOBAL_SETTINGS,
-  GlobalSettings,
-  ProjectSettings,
-  ResolvedSettings
-} from '../types'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function mergeSettings(global: GlobalSettings, project?: ProjectSettings | null): ResolvedSettings {
-  if (!project) return global
-  return {
-    autoSave: {
-      mode: project.autoSave?.mode ?? global.autoSave.mode,
-      intervalSeconds: project.autoSave?.intervalSeconds ?? global.autoSave.intervalSeconds
-    },
-    prefillNames: project.prefillNames != null ? project.prefillNames : global.prefillNames
-  }
-}
-
-function deepMergeDefaults(saved: object): GlobalSettings {
-  const s = saved as Partial<GlobalSettings>
-  return {
-    autoSave: {
-      mode: s.autoSave?.mode ?? DEFAULT_GLOBAL_SETTINGS.autoSave.mode,
-      intervalSeconds:
-        s.autoSave?.intervalSeconds ?? DEFAULT_GLOBAL_SETTINGS.autoSave.intervalSeconds
-    },
-    prefillNames: s.prefillNames ?? DEFAULT_GLOBAL_SETTINGS.prefillNames
-  }
-}
+import React, { createContext, useCallback, useContext, useEffect, useRef } from 'react'
+import { useSettingsStore } from '../stores/settingsStore'
+import type { GlobalSettings, ProjectSettings, ResolvedSettings } from '../types'
 
 // ── Context types ─────────────────────────────────────────────────────────────
 
@@ -58,49 +29,51 @@ const SettingsContext = createContext<SettingsContextValue | null>(null)
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function SettingsProvider({ children }: { children: React.ReactNode }): React.ReactElement {
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS)
-  const [projectSettings, setProjectSettings] = useState<ProjectSettings | null>(null)
-  const [ready, setReady] = useState(false)
+  const store = useSettingsStore()
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Load global settings from disk on mount
   useEffect(() => {
     window.electronAPI.settingsReadGlobal().then((raw) => {
-      setGlobalSettings(deepMergeDefaults(raw))
-      setReady(true)
+      store.loadGlobalSettings(raw)
     })
-  }, [])
+  }, [store])
 
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const updateGlobal = useCallback((patch: Partial<GlobalSettings>) => {
-    setGlobalSettings((prev) => {
-      const next: GlobalSettings = {
-        ...prev,
-        ...patch,
-        autoSave: { ...prev.autoSave, ...(patch.autoSave ?? {}) }
-      }
+  const updateGlobal = useCallback(
+    (patch: Partial<GlobalSettings>) => {
+      store.updateGlobal(patch)
       // Debounce persist
       if (persistTimer.current) clearTimeout(persistTimer.current)
       persistTimer.current = setTimeout(() => {
-        window.electronAPI.settingsWriteGlobal(next)
+        store.persistGlobalSettings((data) => {
+          window.electronAPI.settingsWriteGlobal(data)
+        })
       }, 500)
-      return next
-    })
-  }, [])
+    },
+    [store]
+  )
 
-  const updateProject = useCallback((patch: ProjectSettings | null) => {
-    setProjectSettings(patch)
-  }, [])
+  const updateProject = useCallback(
+    (patch: ProjectSettings | null) => {
+      store.updateProject(patch)
+    },
+    [store]
+  )
 
-  const resolved = mergeSettings(globalSettings, projectSettings)
+  const setProjectSettings = useCallback(
+    (s: ProjectSettings | null) => {
+      store.setProjectSettings(s)
+    },
+    [store]
+  )
 
   return (
     <SettingsContext.Provider
       value={{
-        globalSettings,
-        projectSettings,
-        resolved,
-        ready,
+        globalSettings: store.globalSettings,
+        projectSettings: store.projectSettings,
+        resolved: store.getResolved(),
+        ready: store.ready,
         updateGlobal,
         updateProject,
         setProjectSettings
