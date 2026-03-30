@@ -1,8 +1,10 @@
 import archiver from 'archiver'
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, net, protocol, shell } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
+import type { AnyAppData, FolderStatus, GameTemplate, GlobalSettings, ProjectFile } from '../shared'
 import { prepareAppDataForTemplate } from './gameRegistry'
+import { createHandler } from './ipc-handlers'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -91,12 +93,39 @@ function collectUsedAssets(obj: unknown, out = new Set<string>()): Set<string> {
   return out
 }
 
+/** Collect used assets from current state and all history states (past + future) */
+function collectUsedAssetsWithHistory(
+  currentData: object,
+  historyStates?: { past: object[]; future: object[] }
+): Set<string> {
+  const used = collectUsedAssets(currentData)
+
+  if (historyStates) {
+    // Include assets from past states (undo stack)
+    for (const state of historyStates.past) {
+      collectUsedAssets(state, used)
+    }
+    // Include assets from future states (redo stack)
+    for (const state of historyStates.future) {
+      collectUsedAssets(state, used)
+    }
+  }
+
+  return used
+}
+
 /** Delete files in <projectDir>/assets/ that are not in the used set */
-function purgeUnusedAssets(projectDir: string, projectData: object): void {
+function purgeUnusedAssets(
+  projectDir: string,
+  projectData: object,
+  historyStates?: { past: object[]; future: object[] }
+): void {
   const assetsDir = path.join(projectDir, 'assets')
   if (!fs.existsSync(assetsDir)) return
-  const usedPaths = collectUsedAssets(projectData)
+
+  const usedPaths = collectUsedAssetsWithHistory(projectData, historyStates)
   const usedFiles = new Set([...usedPaths].map((p) => path.basename(p)))
+
   for (const file of fs.readdirSync(assetsDir)) {
     if (!usedFiles.has(file)) {
       try {
@@ -104,6 +133,27 @@ function purgeUnusedAssets(projectDir: string, projectData: object): void {
       } catch {
         /* ignore */
       }
+    }
+  }
+}
+
+/** Copy only used assets to a destination directory */
+function copyUsedAssetsOnly(projectDir: string, destDir: string, projectData: object): void {
+  const srcAssetsDir = path.join(projectDir, 'assets')
+  const destAssetsDir = path.join(destDir, 'assets')
+
+  if (!fs.existsSync(srcAssetsDir)) return
+
+  const usedPaths = collectUsedAssets(projectData)
+  const usedFiles = new Set([...usedPaths].map((p) => path.basename(p)))
+
+  // Create destination assets directory
+  fs.mkdirSync(destAssetsDir, { recursive: true })
+
+  // Copy only used files
+  for (const file of fs.readdirSync(srcAssetsDir)) {
+    if (usedFiles.has(file)) {
+      fs.copyFileSync(path.join(srcAssetsDir, file), path.join(destAssetsDir, file))
     }
   }
 }
@@ -207,7 +257,7 @@ app.on('window-all-closed', () => {
 })
 
 // ── IPC: Templates ────────────────────────────────────────────────────────────
-ipcMain.handle('get-templates', async () => {
+createHandler('get-templates', async () => {
   const templatesDir = getTemplatesDir()
   if (!fs.existsSync(templatesDir)) return []
 
@@ -233,15 +283,15 @@ ipcMain.handle('get-templates', async () => {
 
       return { id: dir.name, ...meta, thumbnailUrl }
     })
-    .filter(Boolean)
+    .filter(Boolean) as GameTemplate[]
 })
 
 // ── IPC: Project management ───────────────────────────────────────────────────
-ipcMain.handle('check-folder-status', async (_e, folderPath: string) =>
+createHandler('check-folder-status', async (_e, folderPath: string) =>
   checkFolderStatus(folderPath)
 )
 
-ipcMain.handle('choose-project-folder', async () => {
+createHandler('choose-project-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openDirectory', 'createDirectory'],
     title: 'Choose Project Save Location'
@@ -249,7 +299,7 @@ ipcMain.handle('choose-project-folder', async () => {
   return result.canceled ? null : result.filePaths[0]
 })
 
-ipcMain.handle('open-project-file', async (_e, filePath?: string) => {
+createHandler('open-project-file', async (_e, filePath?: string) => {
   let resolved = filePath
   if (!resolved) {
     const result = await dialog.showOpenDialog(mainWindow!, {
@@ -261,18 +311,24 @@ ipcMain.handle('open-project-file', async (_e, filePath?: string) => {
     resolved = result.filePaths[0]
   }
   const content = fs.readFileSync(resolved, 'utf-8')
-  return { filePath: resolved, data: JSON.parse(content) }
+  return { filePath: resolved, data: JSON.parse(content) } as {
+    filePath: string
+    data: ProjectFile
+  }
 })
 
-ipcMain.handle('save-project', async (_e, projectData: object, projectPath: string) => {
-  fs.writeFileSync(projectPath, JSON.stringify(projectData, null, 2), 'utf-8')
-  purgeUnusedAssets(path.dirname(projectPath), projectData)
-  return true
-})
+createHandler(
+  'save-project',
+  async (_e, projectData: object, projectPath: string, historyStates) => {
+    fs.writeFileSync(projectPath, JSON.stringify(projectData, null, 2), 'utf-8')
+    purgeUnusedAssets(path.dirname(projectPath), projectData, historyStates)
+    return true
+  }
+)
 
 /** Save As: pick folder, copy assets, write file. Returns new paths or null if canceled. */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-ipcMain.handle('save-project-as', async (_) => {
+createHandler('save-project-as', async (_) => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openDirectory', 'createDirectory'],
     title: 'Save Project As — Choose New Folder'
@@ -282,14 +338,22 @@ ipcMain.handle('save-project-as', async (_) => {
   const newFolder = result.filePaths[0]
   const status = checkFolderStatus(newFolder)
   // Return status so renderer can confirm overwrite if needed
-  return { folder: newFolder, status }
+  return { folder: newFolder, status } as { folder: string; status: FolderStatus }
 })
 
 /** Actually perform the save-as copy after the renderer has confirmed */
-ipcMain.handle(
+createHandler(
   'do-save-as',
-  async (_e, opts: { projectData: object; oldProjectDir: string; newFolder: string }) => {
-    const { projectData, oldProjectDir, newFolder } = opts
+  async (
+    _e,
+    opts: {
+      projectData: object
+      oldProjectDir: string
+      newFolder: string
+      historyStates?: { past: object[]; future: object[] }
+    }
+  ) => {
+    const { projectData, oldProjectDir, newFolder, historyStates } = opts
 
     // Copy assets from old location
     const oldAssets = path.join(oldProjectDir, 'assets')
@@ -298,14 +362,14 @@ ipcMain.handle(
     // Write project file
     const newFilePath = path.join(newFolder, 'project.mgproj')
     fs.writeFileSync(newFilePath, JSON.stringify(projectData, null, 2), 'utf-8')
-    purgeUnusedAssets(newFolder, projectData)
+    purgeUnusedAssets(newFolder, projectData, historyStates)
 
     return { filePath: newFilePath, projectDir: newFolder }
   }
 )
 
 // ── IPC: Assets ───────────────────────────────────────────────────────────────
-ipcMain.handle('pick-image', async () => {
+createHandler('pick-image', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openFile'],
     filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }],
@@ -314,7 +378,7 @@ ipcMain.handle('pick-image', async () => {
   return result.canceled ? null : result.filePaths[0]
 })
 
-ipcMain.handle(
+createHandler(
   'import-image',
   async (_e, sourcePath: string, projectDir: string, desiredNamePrefix: string) => {
     const assetsDir = path.join(projectDir, 'assets')
@@ -327,25 +391,25 @@ ipcMain.handle(
   }
 )
 
-ipcMain.handle('resolve-asset-url', async (_e, projectDir: string, relativePath: string) => {
+createHandler('resolve-asset-url', async (_e, projectDir: string, relativePath: string) => {
   const abs = path.join(projectDir, relativePath)
   return `file://${abs.replace(/\\/g, '/')}`
 })
 
 // ── IPC: Settings ─────────────────────────────────────────────────────────────
-ipcMain.handle('settings-read-global', async () => readSettings())
-ipcMain.handle('settings-write-global', async (_e, data: object) => {
+createHandler('settings-read-global', async () => readSettings() as unknown as GlobalSettings)
+createHandler('settings-write-global', async (_e, data: GlobalSettings) => {
   writeSettings(data)
   return true
 })
 
 // ── IPC: Window title ─────────────────────────────────────────────────────────
-ipcMain.handle('set-title', async (_e, title: string) => {
+createHandler('set-title', async (_e, title: string) => {
   mainWindow?.setTitle(title)
 })
 
 // ── IPC: Preview ─────────────────────────────────────────────────────────────
-ipcMain.handle('preview-project', async (_, opts) => {
+createHandler('preview-project', async (_, opts) => {
   const { templateId, appData, projectDir } = opts
   const gameDir = getGameDir(templateId)
   const htmlPath = path.join(gameDir, 'index.html')
@@ -353,7 +417,7 @@ ipcMain.handle('preview-project', async (_, opts) => {
   if (!fs.existsSync(htmlPath)) throw new Error('Template not found')
 
   const sanitizedData = normalizeAssetPaths(appData, projectDir)
-  const templateData = prepareAppDataForTemplate(templateId, sanitizedData as object)
+  const templateData = prepareAppDataForTemplate(templateId, sanitizedData as AnyAppData)
   const injectedHtml = injectAppData(fs.readFileSync(htmlPath, 'utf-8'), templateData)
 
   // Unique ID for this specific window instance
@@ -401,7 +465,7 @@ ipcMain.handle('preview-project', async (_, opts) => {
 })
 
 // ── IPC: Export ───────────────────────────────────────────────────────────────
-ipcMain.handle(
+createHandler(
   'export-project',
   async (
     _e,
@@ -430,9 +494,8 @@ ipcMain.handle(
       // Copy all game resources, then overwrite index.html with injected version
       copyDirSync(gameDir, destDir)
       fs.writeFileSync(path.join(destDir, 'index.html'), injectedHtml, 'utf-8')
-      // Copy project assets
-      const assetsDir = path.join(projectDir, 'assets')
-      if (fs.existsSync(assetsDir)) copyDirSync(assetsDir, path.join(destDir, 'assets'))
+      // Copy only used project assets (not all assets)
+      copyUsedAssetsOnly(projectDir, destDir, appData)
       shell.openPath(destDir)
       return { success: true, path: destDir }
     } else {
@@ -442,7 +505,7 @@ ipcMain.handle(
         title: 'Save Export ZIP'
       })
       if (result.canceled) return { canceled: true }
-      await exportToZip(injectedHtml, gameDir, projectDir, result.filePath!)
+      await exportToZip(injectedHtml, gameDir, projectDir, appData, result.filePath!)
       shell.showItemInFolder(result.filePath!)
       return { success: true, path: result.filePath }
     }
@@ -453,6 +516,7 @@ async function exportToZip(
   injectedHtml: string,
   gameDir: string,
   projectDir: string,
+  appData: object,
   zipPath: string
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
@@ -461,13 +525,27 @@ async function exportToZip(
     output.on('close', resolve)
     archive.on('error', reject)
     archive.pipe(output)
-    // Add all game resources
-    archive.directory(gameDir, false)
-    // Overwrite index.html with injected version
+    // Add all game resources except root index.html
+    archive.directory(gameDir, false, (entry) => {
+      // Only exclude index.html at the root level
+      if (entry.name === 'index.html') return false
+      return entry
+    })
+    // Add injected index.html
     archive.append(injectedHtml, { name: 'index.html' })
-    // Add project assets
-    const assetsDir = path.join(projectDir, 'assets')
-    if (fs.existsSync(assetsDir)) archive.directory(assetsDir, 'assets')
+    // Add only used project assets (not all assets)
+    const srcAssetsDir = path.join(projectDir, 'assets')
+    if (fs.existsSync(srcAssetsDir)) {
+      const usedPaths = collectUsedAssets(appData)
+      const usedFiles = new Set([...usedPaths].map((p) => path.basename(p)))
+      // Add each used file individually
+      for (const file of usedFiles) {
+        const filePath = path.join(srcAssetsDir, file)
+        if (fs.existsSync(filePath)) {
+          archive.file(filePath, { name: `assets/${file}` })
+        }
+      }
+    }
     archive.finalize()
   })
 }
