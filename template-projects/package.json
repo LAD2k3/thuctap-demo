@@ -1,0 +1,20 @@
+{
+  "name": "minigame-templates",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared/*",
+    "group-sort",
+    "balloon-letter-picker",
+    "labelled-diagram",
+    "pair-matching",
+    "plane-quiz",
+    "whack-a-mole",
+    "word-search"
+  ],
+  "scripts": {
+    "build:all": "yarn workspaces foreach -A run build",
+    "build:tutorial-viewer": "yarn workspace @minigame/tutorial-viewer run build"
+  },
+  "packageManager": "yarn@4.13.0"
+}

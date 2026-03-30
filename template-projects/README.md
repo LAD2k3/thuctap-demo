@@ -2,6 +2,28 @@
 
 This directory contains **game template projects** — standalone web applications that define the games teachers can create with the Minigame Builder.
 
+---
+
+## ⚡ Quick Start for Developers
+
+**First time setup** (after cloning):
+
+```bash
+cd template-projects
+yarn install
+```
+
+Then work in your game folder:
+
+```bash
+cd group-sort
+yarn dev
+```
+
+📚 **See [SETUP.md](SETUP.md) for complete setup instructions.**
+
+---
+
 ## Overview
 
 Each subdirectory here is a complete, independent web application that:
@@ -162,6 +184,25 @@ Quick steps:
 2. Modify `meta.json` with your game info
 3. Update `build-templates.sh` to register your game
 4. Build and test
+
+## Shared Components
+
+The `shared/` folder contains **workspace packages** that can be used across all game templates:
+
+- **`shared/tutorial-viewer/`** - Tutorial image viewer component with navigation
+
+To use a shared component in your game:
+
+```json
+// In your game's package.json
+{
+  "dependencies": {
+    "@minigame/tutorial-viewer": "workspace:*"
+  }
+}
+```
+
+Then run `yarn install` in your game folder. See [SETUP.md](SETUP.md) for details.
 
 ## For AI Chatbots
 
