@@ -7,10 +7,10 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
-  GlobalSettings,
-  IPCChannelDefinitions,
-  IPCReturn,
-  RendererInvokeArgs
+    GlobalSettings,
+    IPCChannelDefinitions,
+    IPCReturn,
+    RendererInvokeArgs
 } from '../shared'
 
 /**
@@ -46,18 +46,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     typedIpcRenderer.invoke('check-folder-status', folderPath),
   chooseProjectFolder: () => typedIpcRenderer.invoke('choose-project-folder'),
   openProjectFile: (filePath?: string) => typedIpcRenderer.invoke('open-project-file', filePath),
-  saveProject: (
-    data: object,
-    projectPath: string,
-    historyStates?: { past: object[]; future: object[] }
-  ) => typedIpcRenderer.invoke('save-project', data, projectPath, historyStates),
+  saveProject: (data: object, projectPath: string, history?: object[]) =>
+    typedIpcRenderer.invoke('save-project', data, projectPath, history),
   saveProjectAs: (opts: { projectData: object; oldProjectDir: string }) =>
     typedIpcRenderer.invoke('save-project-as', opts),
   doSaveAs: (opts: {
     projectData: object
     oldProjectDir: string
     newFolder: string
-    historyStates?: { past: object[]; future: object[] }
+    history?: object[]
   }) => typedIpcRenderer.invoke('do-save-as', opts),
 
   // Assets

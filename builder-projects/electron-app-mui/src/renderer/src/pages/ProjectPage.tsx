@@ -33,7 +33,7 @@ import {
 import { JSX, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import SettingsPanel from '../components/SettingsPanel'
-import { ProjectHistoryProvider, useProjectHistory, useProjectHistorySnapshot } from '../context/ProjectHistoryContext'
+import { getHistoryArray, ProjectHistoryProvider, useProjectHistoryWithDebounce, type HistoryStore } from '../context/ProjectHistoryContext'
 import { useSettings } from '../context/SettingsContext'
 import { GAME_REGISTRY } from '../games/registry'
 import { useProjectShortcuts } from '../hooks/useProjectShortcuts'
@@ -87,9 +87,14 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   const [isDirty, setIsDirty] = useState(false)
   const [templates, setTemplates] = useState<GameTemplate[]>([])
 
-  // History tracks only the game data, not meta
-  const { state: appData, setState: setAppData, controls } = useProjectHistory()
-  const snapshot = useProjectHistorySnapshot()
+  // History with debounced pushes - `current` is immediately updated for UI responsiveness
+  const { current: appData, push: pushToHistory, setState: setAppData, controls, canBack, canForward, store } = useProjectHistoryWithDebounce({ debounceMs: 500 })
+  const storeRef = useRef<HistoryStore>(store)
+  
+  // Keep store ref updated
+  useEffect(() => {
+    storeRef.current = store
+  }, [store])
 
   // Load templates list for display names
   useEffect(() => {
@@ -142,28 +147,24 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   const doSave = useCallback(
     async (currentMeta: ProjectMeta, appDataToSave: AnyAppData) => {
       const file = buildProjectFile(currentMeta, appDataToSave)
-      // Pass history states so purging considers undo/redo stack
-      await window.electronAPI.saveProject(file, currentMeta.filePath, {
-        past: snapshot.past,
-        future: snapshot.future
-      })
+      // Pass full history array for asset purging
+      const history = getHistoryArray(storeRef.current!)
+      await window.electronAPI.saveProject(file, currentMeta.filePath, history)
       setIsDirty(false)
     },
-    [snapshot.past, snapshot.future]
+    []
   )
 
   const performSaveAs = useCallback(
     async (folder: string): Promise<void> => {
       if (!meta) return
       try {
+        const history = getHistoryArray(storeRef.current!)
         const newLoc = await window.electronAPI.doSaveAs({
           projectData: buildProjectFile(meta, appData),
           oldProjectDir: meta.projectDir,
           newFolder: folder,
-          historyStates: {
-            past: snapshot.past,
-            future: snapshot.future
-          }
+          history
         })
         setMeta((prev) =>
           prev ? { ...prev, filePath: newLoc.filePath, projectDir: newLoc.projectDir } : prev
@@ -175,7 +176,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
         showSnack(`Save As failed: ${e}`, 'error')
       }
     },
-    [meta, appData, snapshot.past, snapshot.future, showSnack]
+    [meta, appData, showSnack]
   )
 
   // ── Auto-save ─────────────────────────────────────────────────────────────
@@ -201,7 +202,10 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   // ── App data change (from editor) ─────────────────────────────────────────
   const handleAppDataChange = useCallback(
     (newData: AnyAppData) => {
-      setAppData(() => newData)
+      // Update history with debounce (for undo/redo)
+      pushToHistory(newData)
+      // Also update store immediately for UI responsiveness
+      setAppData(newData)
       setIsDirty(true)
       if (resolved.autoSave.mode === 'on-edit') {
         if (onEditTimerRef.current) clearTimeout(onEditTimerRef.current)
@@ -210,7 +214,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
         }, 1000)
       }
     },
-    [setAppData, resolved.autoSave.mode, doSave]
+    [pushToHistory, setAppData, resolved.autoSave.mode, doSave]
   )
 
   const handleSave = useCallback(async (): Promise<void> => {
@@ -289,8 +293,8 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useProjectShortcuts({
     // Navigation
-    onUndo: snapshot.canUndo ? () => controls.back() : undefined,
-    onRedo: snapshot.canRedo ? () => controls.forward() : undefined,
+    onUndo: canBack ? () => controls.back() : undefined,
+    onRedo: canForward ? () => controls.forward() : undefined,
 
     // File operations
     onSave: handleSave,
@@ -394,14 +398,14 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
           <Tooltip title="Undo (Ctrl+Z)">
             <span>
-              <IconButton size="small" onClick={() => controls.back()} disabled={!snapshot.canUndo}>
+              <IconButton size="small" onClick={() => controls.back()} disabled={!canBack}>
                 <UndoIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Redo (Ctrl+Y)">
             <span>
-              <IconButton size="small" onClick={() => controls.forward()} disabled={!snapshot.canRedo}>
+              <IconButton size="small" onClick={() => controls.forward()} disabled={!canForward}>
                 <RedoIcon fontSize="small" />
               </IconButton>
             </span>

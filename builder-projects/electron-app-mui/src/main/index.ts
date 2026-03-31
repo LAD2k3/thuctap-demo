@@ -94,20 +94,16 @@ function collectUsedAssets(obj: unknown, out = new Set<string>()): Set<string> {
   return out
 }
 
-/** Collect used assets from current state and all history states (past + future) */
+/** Collect used assets from current state and all history states */
 function collectUsedAssetsWithHistory(
   currentData: object,
-  historyStates?: { past: object[]; future: object[] }
+  history?: object[]
 ): Set<string> {
   const used = collectUsedAssets(currentData)
 
-  if (historyStates) {
-    // Include assets from past states (undo stack)
-    for (const state of historyStates.past) {
-      collectUsedAssets(state, used)
-    }
-    // Include assets from future states (redo stack)
-    for (const state of historyStates.future) {
+  if (history) {
+    // Include assets from all history states
+    for (const state of history) {
       collectUsedAssets(state, used)
     }
   }
@@ -119,12 +115,12 @@ function collectUsedAssetsWithHistory(
 function purgeUnusedAssets(
   projectDir: string,
   projectData: object,
-  historyStates?: { past: object[]; future: object[] }
+  history?: object[]
 ): void {
   const assetsDir = path.join(projectDir, 'assets')
   if (!fs.existsSync(assetsDir)) return
 
-  const usedPaths = collectUsedAssetsWithHistory(projectData, historyStates)
+  const usedPaths = collectUsedAssetsWithHistory(projectData, history)
   const usedFiles = new Set([...usedPaths].map((p) => path.basename(p)))
 
   for (const file of fs.readdirSync(assetsDir)) {
@@ -328,9 +324,9 @@ createHandler('open-project-file', async (_e, filePath?: string) => {
 
 createHandler(
   'save-project',
-  async (_e, projectData: object, projectPath: string, historyStates) => {
+  async (_e, projectData: object, projectPath: string, history) => {
     fs.writeFileSync(projectPath, JSON.stringify(projectData, null, 2), 'utf-8')
-    purgeUnusedAssets(path.dirname(projectPath), projectData, historyStates)
+    purgeUnusedAssets(path.dirname(projectPath), projectData, history)
     return true
   }
 )
@@ -359,10 +355,10 @@ createHandler(
       projectData: object
       oldProjectDir: string
       newFolder: string
-      historyStates?: { past: object[]; future: object[] }
+      history?: object[]
     }
   ) => {
-    const { projectData, oldProjectDir, newFolder, historyStates } = opts
+    const { projectData, oldProjectDir, newFolder, history } = opts
 
     // Copy assets from old location
     const oldAssets = path.join(oldProjectDir, 'assets')
@@ -371,7 +367,7 @@ createHandler(
     // Write project file
     const newFilePath = path.join(newFolder, 'project.mgproj')
     fs.writeFileSync(newFilePath, JSON.stringify(projectData, null, 2), 'utf-8')
-    purgeUnusedAssets(newFolder, projectData, historyStates)
+    purgeUnusedAssets(newFolder, projectData, history)
 
     return { filePath: newFilePath, projectDir: newFolder }
   }
