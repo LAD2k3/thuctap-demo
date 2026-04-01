@@ -19,18 +19,16 @@ export interface SaveAsResult {
  * Hook for project file operations (save, saveAs, export, preview, rename).
  * Extracted from ProjectPage to reduce component complexity.
  */
-export function useProjectActions({
-  meta,
-  appData,
-  getHistory,
-  onSnack
-}: ProjectActionsOptions) {
+export function useProjectActions({ meta, appData, getHistory, onSnack }: ProjectActionsOptions) {
   // ── Save ─────────────────────────────────────────────────────────────────────
-  const doSave = useCallback(async (currentMeta: ProjectMeta): Promise<void> => {
-    const file = buildProjectFile(currentMeta, appData)
-    const history = getHistoryArray(getHistory())
-    await window.electronAPI.saveProject(file, currentMeta.filePath, history)
-  }, [appData, getHistory])
+  const doSave = useCallback(
+    async (currentMeta: ProjectMeta): Promise<void> => {
+      const file = buildProjectFile(currentMeta, appData)
+      const history = getHistoryArray(getHistory())
+      await window.electronAPI.saveProject(file, currentMeta.filePath, history)
+    },
+    [appData, getHistory]
+  )
 
   const handleSave = useCallback(async (): Promise<void> => {
     if (!meta) return

@@ -124,12 +124,15 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   isDirtyRef.current = isDirty
 
   // ── Save ─────────────────────────────────────────────────────────────────
-  const doSave = useCallback(async (currentMeta: ProjectMeta, appDataToSave: AnyAppData) => {
-    const file = buildProjectFile(currentMeta, appDataToSave)
-    const history = getHistoryArray(getHistory())
-    await window.electronAPI.saveProject(file, currentMeta.filePath, history)
-    setIsDirty(false)
-  }, [getHistory])
+  const doSave = useCallback(
+    async (currentMeta: ProjectMeta, appDataToSave: AnyAppData) => {
+      const file = buildProjectFile(currentMeta, appDataToSave)
+      const history = getHistoryArray(getHistory())
+      await window.electronAPI.saveProject(file, currentMeta.filePath, history)
+      setIsDirty(false)
+    },
+    [getHistory]
+  )
 
   const performSaveAs = useCallback(
     async (folder: string): Promise<void> => {
@@ -195,10 +198,10 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     (newData: AnyAppData) => {
       // Update history state (for undo/redo)
       setPresent(newData)
-      
+
       // Update dirty state
       setIsDirty(true)
-      
+
       // Update refs for auto-save
       appDataRef.current = newData
       isDirtyRef.current = true
@@ -369,7 +372,11 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} hasProject />
 
       {/* ── Export menu ── */}
-      <ExportMenu anchorEl={exportAnchor} onClose={() => setExportAnchor(null)} onExport={handleExport} />
+      <ExportMenu
+        anchorEl={exportAnchor}
+        onClose={() => setExportAnchor(null)}
+        onExport={handleExport}
+      />
 
       {/* ── Save As overwrite confirm ── */}
       <SaveAsConfirmDialog
@@ -407,11 +414,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       />
 
       {/* ── Snackbar ── */}
-      <ProjectSnackbar
-        message={snackMsg}
-        severity={snackSeverity}
-        onClose={hideSnack}
-      />
+      <ProjectSnackbar message={snackMsg} severity={snackSeverity} onClose={hideSnack} />
     </Box>
   )
 }

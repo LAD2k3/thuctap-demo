@@ -7,5 +7,5 @@
 export { WordCard } from './WordCard'
 export type { WordCardProps } from './WordCard'
 
-export { WordsTab, SummarySidebar } from './WordsTab'
-export type { WordsTabProps, SummarySidebarProps } from './WordsTab'
+export { SummarySidebar, WordsTab } from './WordsTab'
+export type { SummarySidebarProps, WordsTabProps } from './WordsTab'

@@ -18,18 +18,24 @@ interface Props {
 export default function SettingsPanel({ open, onClose, hasProject }: Props): React.ReactElement {
   const { globalSettings, projectSettings, resolved, updateGlobal, updateProject } = useSettings()
 
-  const clearProjOverride = useCallback((key: keyof ProjectSettings): void => {
-    if (!projectSettings) return
-    const next: ProjectSettings = {
-      autoSave: key === 'autoSave' ? null : projectSettings.autoSave,
-      prefillNames: key === 'prefillNames' ? null : projectSettings.prefillNames
-    }
-    updateProject(next)
-  }, [projectSettings, updateProject])
+  const clearProjOverride = useCallback(
+    (key: keyof ProjectSettings): void => {
+      if (!projectSettings) return
+      const next: ProjectSettings = {
+        autoSave: key === 'autoSave' ? null : projectSettings.autoSave,
+        prefillNames: key === 'prefillNames' ? null : projectSettings.prefillNames
+      }
+      updateProject(next)
+    },
+    [projectSettings, updateProject]
+  )
 
-  const setProjOverride = useCallback((patch: ProjectSettings): void => {
-    updateProject({ ...projectSettings, ...patch })
-  }, [projectSettings, updateProject])
+  const setProjOverride = useCallback(
+    (patch: ProjectSettings): void => {
+      updateProject({ ...projectSettings, ...patch })
+    },
+    [projectSettings, updateProject]
+  )
 
   return (
     <Drawer

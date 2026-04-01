@@ -9,14 +9,20 @@
 export {
   AtoZWordField,
   EmptyState,
-  FileDropTarget, IndexBadge,
-  NameField, SidebarTab, StickyHeader
+  FileDropTarget,
+  IndexBadge,
+  NameField,
+  SidebarTab,
+  StickyHeader
 } from './editors'
 
 export type {
   AtoZWordFieldProps,
   EmptyStateProps,
-  FileDropTargetProps, IndexBadgeProps,
-  NameFieldProps, SidebarTabProps, StickyHeaderProps
+  FileDropTargetProps,
+  IndexBadgeProps,
+  NameFieldProps,
+  SidebarTabProps,
+  StickyHeaderProps
 } from './editors'
 

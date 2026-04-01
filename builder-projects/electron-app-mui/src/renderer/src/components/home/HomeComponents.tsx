@@ -124,7 +124,11 @@ interface RecentProjectItemProps {
   onRemove: (e: React.MouseEvent) => void
 }
 
-function RecentProjectItem({ entry, onClick, onRemove }: RecentProjectItemProps): React.ReactElement {
+function RecentProjectItem({
+  entry,
+  onClick,
+  onRemove
+}: RecentProjectItemProps): React.ReactElement {
   return (
     <Box
       onClick={onClick}
@@ -157,11 +161,7 @@ function RecentProjectItem({ entry, onClick, onRemove }: RecentProjectItemProps)
           {entry.projectName}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
-          <Chip
-            label={entry.templateName}
-            size="small"
-            sx={{ height: 16, fontSize: '0.6rem' }}
-          />
+          <Chip label={entry.templateName} size="small" sx={{ height: 16, fontSize: '0.6rem' }} />
           <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.7rem' }}>
             Opened {timeRelative(entry.lastOpened)}
           </Typography>

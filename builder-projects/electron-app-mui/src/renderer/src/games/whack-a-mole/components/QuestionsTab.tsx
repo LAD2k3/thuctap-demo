@@ -2,7 +2,7 @@ import MoleIcon from '@mui/icons-material/Cookie'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Alert, Box, Button, Chip, Collapse, Divider, Typography } from '@mui/material'
 import React from 'react'
-import { FileDropTarget, StickyHeader, EmptyState, SidebarTab } from '../../../components'
+import { EmptyState, FileDropTarget, SidebarTab, StickyHeader } from '../../../components'
 import { WhackAMoleQuestion } from '../../../types'
 import { QuestionCard } from './QuestionCard'
 

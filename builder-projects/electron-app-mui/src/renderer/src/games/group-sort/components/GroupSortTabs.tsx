@@ -7,12 +7,12 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Alert, Box, Button, Chip, IconButton, Paper, Tooltip, Typography } from '@mui/material'
 import React from 'react'
 import {
-    EmptyState,
-    FileDropTarget,
-    ImagePicker,
-    IndexBadge,
-    NameField,
-    StickyHeader
+  EmptyState,
+  FileDropTarget,
+  ImagePicker,
+  IndexBadge,
+  NameField,
+  StickyHeader
 } from '../../../components'
 import { GroupSortGroup, GroupSortItem } from '../../../types'
 import { GroupCard } from './GroupCard'
@@ -43,7 +43,12 @@ export function GroupsTab({
         description="Each group is a sorting category. Items will be sorted into these groups."
         actions={
           <FileDropTarget onFileDrop={onAddFromDrop}>
-            <Button startIcon={<AddIcon />} variant="contained" size="small" onClick={() => onAdd()}>
+            <Button
+              startIcon={<AddIcon />}
+              variant="contained"
+              size="small"
+              onClick={() => onAdd()}
+            >
               Add Group
             </Button>
           </FileDropTarget>

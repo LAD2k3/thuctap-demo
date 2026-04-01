@@ -4,7 +4,12 @@
  * Pure functions for settings manipulation and merging.
  */
 
-import { DEFAULT_GLOBAL_SETTINGS, GlobalSettings, ProjectSettings, ResolvedSettings } from '../types'
+import {
+  DEFAULT_GLOBAL_SETTINGS,
+  GlobalSettings,
+  ProjectSettings,
+  ResolvedSettings
+} from '../types'
 
 /**
  * Merges global and project settings with proper precedence.

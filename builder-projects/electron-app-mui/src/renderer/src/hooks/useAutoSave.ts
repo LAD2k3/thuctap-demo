@@ -58,7 +58,14 @@ export function useAutoSave({
         intervalRef.current = null
       }
     }
-  }, [resolved.autoSave.mode, resolved.autoSave.intervalSeconds, doSave, metaRef, appDataRef, isDirtyRef])
+  }, [
+    resolved.autoSave.mode,
+    resolved.autoSave.intervalSeconds,
+    doSave,
+    metaRef,
+    appDataRef,
+    isDirtyRef
+  ])
 
   // ── Auto-save: on-edit mode ────────────────────────────────────────────────
   useEffect(() => {
@@ -92,7 +99,7 @@ export function createAppDataChangeHandler(
 ): void {
   // Update history state
   setPresent(newData)
-  
+
   // Update refs
   appDataRef.current = newData
   isDirtyRef.current = true

@@ -8,11 +8,7 @@ import { useSettings } from '@renderer/hooks/useSettings'
 import { JSX, useCallback, useState } from 'react'
 import { SidebarTab } from '../../components/editors'
 import { GroupSortAppData, GroupSortGroup, GroupSortItem } from '../../types'
-import {
-  GroupsTab,
-  ItemsTab,
-  OverviewTab
-} from './components'
+import { GroupsTab, ItemsTab, OverviewTab } from './components'
 
 interface Props {
   appData: GroupSortAppData

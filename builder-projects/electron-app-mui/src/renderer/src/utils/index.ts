@@ -8,7 +8,7 @@
 export * from './stringUtils'
 
 // Settings utilities
-export { mergeSettings, deepMergeDefaults } from './settingsUtils'
+export { deepMergeDefaults, mergeSettings } from './settingsUtils'
 
 // Project file utilities
 export { buildProjectFile, buildProjectTitle } from './projectFileUtils'

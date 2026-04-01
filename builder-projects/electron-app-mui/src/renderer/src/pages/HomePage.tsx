@@ -3,10 +3,10 @@ import { Box, Divider, Typography } from '@mui/material'
 import { JSX, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-    HasProjectDialog,
-    NonEmptyFolderDialog,
-    RecentProjectsSection,
-    TemplateGrid
+  HasProjectDialog,
+  NonEmptyFolderDialog,
+  RecentProjectsSection,
+  TemplateGrid
 } from '../components/home/HomeComponents'
 import { useTemplateManager } from '../hooks/useTemplates'
 import { GameTemplate, GlobalSettings, RecentProject } from '../types'

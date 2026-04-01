@@ -1,7 +1,7 @@
 import DeleteIcon from '@mui/icons-material/Delete'
 import { IconButton, Paper, Tooltip } from '@mui/material'
 import React from 'react'
-import { FileDropTarget, ImagePicker, IndexBadge, AtoZWordField } from '../../../components'
+import { AtoZWordField, FileDropTarget, ImagePicker, IndexBadge } from '../../../components'
 import { WordSearchItem } from '../../../types'
 
 export interface WordCardProps {

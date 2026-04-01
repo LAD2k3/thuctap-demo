@@ -59,14 +59,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
         ...(current as GlobalSettings),
         // Override with updated core settings
         autoSave: {
-          mode: patch.autoSave?.mode ?? current.autoSave?.mode ?? DEFAULT_GLOBAL_SETTINGS.autoSave.mode,
-          intervalSeconds: patch.autoSave?.intervalSeconds ?? current.autoSave?.intervalSeconds ?? DEFAULT_GLOBAL_SETTINGS.autoSave.intervalSeconds
+          mode:
+            patch.autoSave?.mode ?? current.autoSave?.mode ?? DEFAULT_GLOBAL_SETTINGS.autoSave.mode,
+          intervalSeconds:
+            patch.autoSave?.intervalSeconds ??
+            current.autoSave?.intervalSeconds ??
+            DEFAULT_GLOBAL_SETTINGS.autoSave.intervalSeconds
         },
-        prefillNames: patch.prefillNames ?? current.prefillNames ?? DEFAULT_GLOBAL_SETTINGS.prefillNames
+        prefillNames:
+          patch.prefillNames ?? current.prefillNames ?? DEFAULT_GLOBAL_SETTINGS.prefillNames
       }
       window.electronAPI.settingsWriteGlobal(next)
     }, 500)
-    
+
     // Update local state immediately for UI responsiveness
     setGlobalSettings((prev) => ({
       ...prev,

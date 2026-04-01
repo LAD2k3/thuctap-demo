@@ -18,8 +18,8 @@ export { default as SettingsPanel } from './SettingsPanel'
 
 // Project components
 export * from './project/ProjectDialogs'
-export type { ProjectToolbarProps } from './project/ProjectToolbar'
 export { ProjectToolbar } from './project/ProjectToolbar'
+export type { ProjectToolbarProps } from './project/ProjectToolbar'
 
 // Home components
 export * from './home/HomeComponents'

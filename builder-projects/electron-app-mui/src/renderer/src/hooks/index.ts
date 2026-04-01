@@ -5,15 +5,13 @@
  */
 
 // Settings
-export { useSettings } from './useSettings'
 export type { SettingsContextValue } from '../context/SettingsContext'
+export { useSettings } from './useSettings'
 
 // Templates
 export {
-  useTemplateManager,
-  useAllTemplates,
-  usePrefetchTemplates,
-  TEMPLATES_QUERY_KEY
+  TEMPLATES_QUERY_KEY, useAllTemplates,
+  usePrefetchTemplates, useTemplateManager
 } from './useTemplates'
 
 // Assets

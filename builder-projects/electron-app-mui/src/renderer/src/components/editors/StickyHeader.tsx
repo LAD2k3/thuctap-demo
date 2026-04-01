@@ -12,7 +12,12 @@ export interface StickyHeaderProps {
  * A sticky bar pinned to the top of the scrollable content area.
  * Renders a title + description on the left, and action controls on the right.
  */
-export function StickyHeader({ title, description, actions, sx }: StickyHeaderProps): React.ReactElement {
+export function StickyHeader({
+  title,
+  description,
+  actions,
+  sx
+}: StickyHeaderProps): React.ReactElement {
   return (
     <Box
       sx={[
@@ -40,15 +45,16 @@ export function StickyHeader({ title, description, actions, sx }: StickyHeaderPr
           {title}
         </Typography>
         {description && (
-          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', mt: 0.25 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: 'rgba(255, 255, 255, 0.7)', display: 'block', mt: 0.25 }}
+          >
             {description}
           </Typography>
         )}
       </Box>
       {actions && (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
-          {actions}
-        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>{actions}</Box>
       )}
     </Box>
   )

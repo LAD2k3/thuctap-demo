@@ -1,6 +1,15 @@
 import DeleteIcon from '@mui/icons-material/Delete'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
-import { Box, Chip, FormControlLabel, IconButton, Paper, Switch, Tooltip, Typography } from '@mui/material'
+import {
+  Box,
+  Chip,
+  FormControlLabel,
+  IconButton,
+  Paper,
+  Switch,
+  Tooltip,
+  Typography
+} from '@mui/material'
 import React from 'react'
 import { FileDropTarget, ImagePicker, IndexBadge, NameField } from '../../../components'
 import { QuizAnswer, QuizQuestion } from '../../../types'

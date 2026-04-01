@@ -1,15 +1,15 @@
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial'
 import PublicIcon from '@mui/icons-material/Public'
 import {
-    Box,
-    Chip,
-    FormControlLabel,
-    Slider,
-    Switch,
-    ToggleButton,
-    ToggleButtonGroup,
-    Tooltip,
-    Typography
+  Box,
+  Chip,
+  FormControlLabel,
+  Slider,
+  Switch,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography
 } from '@mui/material'
 import React from 'react'
 import { AutoSaveMode, ProjectSettings } from '../../types'
@@ -21,11 +21,7 @@ export interface SectionHeaderProps {
   subtitle?: string
 }
 
-export function SectionHeader({
-  icon,
-  label,
-  subtitle
-}: SectionHeaderProps): React.ReactElement {
+export function SectionHeader({ icon, label, subtitle }: SectionHeaderProps): React.ReactElement {
   return (
     <Box
       sx={{
@@ -182,10 +178,7 @@ export interface PrefillSettingProps {
   onChange: (v: boolean) => void
 }
 
-export function PrefillSetting({
-  value,
-  onChange
-}: PrefillSettingProps): React.ReactElement {
+export function PrefillSetting({ value, onChange }: PrefillSettingProps): React.ReactElement {
   return (
     <FormControlLabel
       control={<Switch size="small" checked={value} onChange={(_, checked) => onChange(checked)} />}

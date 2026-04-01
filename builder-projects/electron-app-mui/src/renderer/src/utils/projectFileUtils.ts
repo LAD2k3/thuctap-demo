@@ -33,6 +33,10 @@ export function buildProjectFile(meta: ProjectMeta, appData: AnyAppData): Projec
  * @param filePath - Project file path
  * @returns Formatted title string
  */
-export function buildProjectTitle(templateId: string, projectName: string, filePath: string): string {
+export function buildProjectTitle(
+  templateId: string,
+  projectName: string,
+  filePath: string
+): string {
   return `[${templateId}] ${projectName} — ${filePath}`
 }

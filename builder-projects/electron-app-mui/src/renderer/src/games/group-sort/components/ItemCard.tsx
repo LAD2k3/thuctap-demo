@@ -1,13 +1,13 @@
 import DeleteIcon from '@mui/icons-material/Delete'
 import {
-    FormControl,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Tooltip,
-    Typography
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Tooltip,
+  Typography
 } from '@mui/material'
 import React from 'react'
 import { FileDropTarget, ImagePicker, IndexBadge, NameField } from '../../../components'
