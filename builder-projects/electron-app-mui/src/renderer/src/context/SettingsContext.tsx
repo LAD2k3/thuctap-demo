@@ -1,9 +1,9 @@
 import React, { createContext, useCallback, useEffect, useRef, useState } from 'react'
 import {
-    DEFAULT_GLOBAL_SETTINGS,
-    GlobalSettings,
-    ProjectSettings,
-    ResolvedSettings
+  DEFAULT_GLOBAL_SETTINGS,
+  GlobalSettings,
+  ProjectSettings,
+  ResolvedSettings
 } from '../types'
 import { deepMergeDefaults, mergeSettings } from '../utils/settingsUtils'
 
@@ -35,7 +35,7 @@ export const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 export function SettingsProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS)
-  const [projectSettings, setProjectSettings] = useState<ProjectSettings | null>(null)
+  const [projectSettings, setProjectSettingsState] = useState<ProjectSettings | null>(null)
   const [ready, setReady] = useState(false)
 
   // Load global settings from disk on mount
@@ -50,12 +50,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
 
   const updateGlobal = useCallback((patch: Partial<GlobalSettings>) => {
     setGlobalSettings((prev) => {
+      // Build complete settings object with all fields
       const next: GlobalSettings = {
-        ...prev,
-        ...patch,
-        autoSave: { ...prev.autoSave, ...(patch.autoSave ?? {}) }
+        // Preserve recentProjects and any other fields
+        ...(prev as GlobalSettings),
+        // Override with updated core settings
+        autoSave: {
+          mode: patch.autoSave?.mode ?? prev.autoSave.mode,
+          intervalSeconds: patch.autoSave?.intervalSeconds ?? prev.autoSave.intervalSeconds
+        },
+        prefillNames: patch.prefillNames ?? prev.prefillNames
       }
-      // Debounce persist
+      // Debounce persist - write complete object
       if (persistTimer.current) clearTimeout(persistTimer.current)
       persistTimer.current = setTimeout(() => {
         window.electronAPI.settingsWriteGlobal(next)
@@ -65,7 +71,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }): R
   }, [])
 
   const updateProject = useCallback((patch: ProjectSettings | null) => {
-    setProjectSettings(patch)
+    setProjectSettingsState(patch)
+    // Note: Project settings are persisted when the project file is saved
+    // They are stored in ProjectFile.settings and saved via doSave/handleSave
+  }, [])
+
+  const setProjectSettings = useCallback((s: ProjectSettings | null) => {
+    setProjectSettingsState(s)
   }, [])
 
   const resolved = mergeSettings(globalSettings, projectSettings)

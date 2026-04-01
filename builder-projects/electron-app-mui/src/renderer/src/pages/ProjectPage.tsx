@@ -34,7 +34,7 @@ interface ProjectPageInnerProps {
 
 function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps): JSX.Element {
   const navigate = useNavigate()
-  const { resolved, setProjectSettings } = useSettings()
+  const { resolved, projectSettings, setProjectSettings } = useSettings()
   const manager = useTemplateManager()
 
   // Split project state: meta (file location, name) is separate from app data (game content)
@@ -83,9 +83,15 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     return () => setProjectSettings(null)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync project settings from context to meta (for saving)
+  // Only update meta when projectSettings change, not vice versa
   useEffect(() => {
-    if (meta?.settings !== undefined) setProjectSettings(meta.settings ?? null)
-  }, [meta?.settings, setProjectSettings])
+    setMeta((prev) => {
+      if (!prev) return prev
+      if (prev.settings === projectSettings) return prev
+      return { ...prev, settings: projectSettings }
+    })
+  }, [projectSettings])
 
   // Update window title whenever meta or appData changes
   useEffect(() => {

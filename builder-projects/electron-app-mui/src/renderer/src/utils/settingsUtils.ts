@@ -31,6 +31,7 @@ export function mergeSettings(
 /**
  * Deep merges saved settings with default values.
  * Ensures all required fields are present even if save is partial.
+ * Preserves additional fields like recentProjects that aren't part of the core settings.
  *
  * @param saved - Saved settings (may be partial)
  * @returns Complete GlobalSettings with defaults applied
@@ -38,6 +39,9 @@ export function mergeSettings(
 export function deepMergeDefaults(saved: object): GlobalSettings {
   const s = saved as Partial<GlobalSettings>
   return {
+    // Preserve recentProjects and any other fields first
+    ...(s as GlobalSettings),
+    // Then override with properly merged core settings
     autoSave: {
       mode: s.autoSave?.mode ?? DEFAULT_GLOBAL_SETTINGS.autoSave.mode,
       intervalSeconds:

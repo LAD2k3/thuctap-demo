@@ -1,10 +1,10 @@
 import CloseIcon from '@mui/icons-material/Close'
 import { Box, Divider, Drawer, IconButton, Typography } from '@mui/material'
 import { useSettings } from '@renderer/hooks/useSettings'
-import React from 'react'
+import React, { useCallback } from 'react'
 import {
-    GlobalSettingsSection,
-    ProjectOverrideSection
+  GlobalSettingsSection,
+  ProjectOverrideSection
 } from '../components/settings/SettingsSubcomponents'
 import { ProjectSettings } from '../types'
 
@@ -18,17 +18,18 @@ interface Props {
 export default function SettingsPanel({ open, onClose, hasProject }: Props): React.ReactElement {
   const { globalSettings, projectSettings, resolved, updateGlobal, updateProject } = useSettings()
 
-  const clearProjOverride = (key: keyof ProjectSettings): void => {
+  const clearProjOverride = useCallback((key: keyof ProjectSettings): void => {
     if (!projectSettings) return
-    const next = { ...projectSettings }
-    if (key === 'autoSave') next.autoSave = null
-    if (key === 'prefillNames') next.prefillNames = null
+    const next: ProjectSettings = {
+      autoSave: key === 'autoSave' ? null : projectSettings.autoSave,
+      prefillNames: key === 'prefillNames' ? null : projectSettings.prefillNames
+    }
     updateProject(next)
-  }
+  }, [projectSettings, updateProject])
 
-  const setProjOverride = (patch: ProjectSettings): void => {
+  const setProjOverride = useCallback((patch: ProjectSettings): void => {
     updateProject({ ...projectSettings, ...patch })
-  }
+  }, [projectSettings, updateProject])
 
   return (
     <Drawer
