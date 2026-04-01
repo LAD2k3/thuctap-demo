@@ -1,50 +1,26 @@
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove'
-import EditIcon from '@mui/icons-material/Edit'
-import FileDownloadIcon from '@mui/icons-material/FileDownload'
-import FolderZipIcon from '@mui/icons-material/FolderZip'
-import PreviewIcon from '@mui/icons-material/Preview'
-import RedoIcon from '@mui/icons-material/Redo'
-import SaveIcon from '@mui/icons-material/Save'
-import SaveAsIcon from '@mui/icons-material/SaveAs'
-import SettingsIcon from '@mui/icons-material/Settings'
-import UndoIcon from '@mui/icons-material/Undo'
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
-  IconButton,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Snackbar,
-  TextField,
-  Tooltip,
-  Typography
-} from '@mui/material'
+import { Box, Button, Typography } from '@mui/material'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { JSX, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import {
+    BackConfirmDialog,
+    ExportMenu,
+    ProjectSnackbar,
+    RenameDialog,
+    SaveAsConfirmDialog
+} from '../components/project/ProjectDialogs'
+import { ProjectToolbar } from '../components/project/ProjectToolbar'
 import SettingsPanel from '../components/SettingsPanel'
 import {
-  getHistoryArray,
-  ProjectHistoryProvider,
-  useProjectHistory
+    getHistoryArray,
+    ProjectHistoryProvider,
+    useProjectHistory
 } from '../context/ProjectHistoryContext'
 import { useProjectShortcuts } from '../hooks/useProjectShortcuts'
 import { useTemplateManager } from '../hooks/useTemplates'
 import { AnyAppData, ProjectFile, ProjectMeta } from '../types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const AUTO_SAVE_DEBOUNCE_MS = 1000
 const SNACKBAR_AUTO_HIDE_MS = 3500
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -136,10 +112,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     window.electronAPI.setTitle(title)
   }, [meta, templateId, manager])
 
-  const [snack, setSnack] = useState<{
-    msg: string
-    severity: 'success' | 'error' | 'info'
-  } | null>(null)
+  // UI state
   const [exportAnchor, setExportAnchor] = useState<null | HTMLElement>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameValue, setRenameValue] = useState('')
@@ -147,11 +120,9 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [saveAsConfirmFolder, setSaveAsConfirmFolder] = useState<string | null>(null)
 
-  const showSnack = useCallback(
-    (msg: string, severity: 'success' | 'error' | 'info' = 'success'): void =>
-      setSnack({ msg, severity }),
-    []
-  )
+  // Snackbar management
+  const [snack, setSnack] = useState<{ msg: string; severity: 'success' | 'error' | 'info' } | null>(null)
+  const showSnackSimple = useCallback((msg: string, severity: 'success' | 'error' | 'info' = 'success') => setSnack({ msg, severity }), [])
 
   // ── Refs for auto-save (kept in sync via effect below) ─────────────────────
   const onEditTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -171,7 +142,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     const history = getHistoryArray(getHistory())
     await window.electronAPI.saveProject(file, currentMeta.filePath, history)
     setIsDirty(false)
-  }, [])
+  }, [getHistory])
 
   const performSaveAs = useCallback(
     async (folder: string): Promise<void> => {
@@ -189,23 +160,21 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
         )
         setIsDirty(false)
         setSaveAsConfirmFolder(null)
-        showSnack(`Saved to: ${newLoc.projectDir}`)
+        showSnackSimple(`Saved to: ${newLoc.projectDir}`)
       } catch (e) {
-        showSnack(`Save As failed: ${e}`, 'error')
+        showSnackSimple(`Save As failed: ${e}`, 'error')
       }
     },
-    [meta, appData, showSnack]
+    [meta, appData, getHistory, showSnackSimple]
   )
 
   // ── Auto-save: interval mode ───────────────────────────────────────────────
   useEffect(() => {
-    // Clear existing interval
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
 
-    // Set up new interval if mode is 'interval'
     if (resolved.autoSave.mode === 'interval') {
       intervalRef.current = setInterval(() => {
         if (isDirtyRef.current && metaRef.current) {
@@ -216,7 +185,6 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       }, resolved.autoSave.intervalSeconds * 1000)
     }
 
-    // Cleanup on unmount or mode change
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -227,7 +195,6 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
 
   // ── Auto-save: on-edit mode ────────────────────────────────────────────────
   useEffect(() => {
-    // Cleanup on unmount or mode change
     return () => {
       if (onEditTimerRef.current) {
         clearTimeout(onEditTimerRef.current)
@@ -242,7 +209,6 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       setAppData(newData)
       setIsDirty(true)
 
-      // Auto-save on edit with debounce
       if (resolved.autoSave.mode === 'on-edit') {
         if (onEditTimerRef.current) clearTimeout(onEditTimerRef.current)
         onEditTimerRef.current = setTimeout(() => {
@@ -251,7 +217,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
               // Silently fail - user will see dirty indicator
             })
           }
-        }, AUTO_SAVE_DEBOUNCE_MS)
+        }, SNACKBAR_AUTO_HIDE_MS)
       }
     },
     [setAppData, resolved.autoSave.mode, doSave]
@@ -261,11 +227,11 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     if (!meta) return
     try {
       await doSave(meta, appData)
-      showSnack('Project saved!')
+      showSnackSimple('Project saved!')
     } catch (e) {
-      showSnack(`Save failed: ${e}`, 'error')
+      showSnackSimple(`Save failed: ${e}`, 'error')
     }
-  }, [meta, appData, doSave, showSnack])
+  }, [meta, appData, doSave, showSnackSimple])
 
   // ── Save As ───────────────────────────────────────────────────────────────
   const handleSaveAs = useCallback(async (): Promise<void> => {
@@ -278,12 +244,12 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     if (result.status === 'has-project' || result.status === 'non-empty') {
       setSaveAsConfirmFolder(result.status === 'has-project' ? result.folder : null)
       if (result.status === 'non-empty') {
-        showSnack('That folder already has files — choose an empty one.', 'info')
+        showSnackSimple('That folder already has files — choose an empty one.', 'info')
         return
       }
     }
     await performSaveAs(result.folder)
-  }, [meta, appData, showSnack, performSaveAs])
+  }, [meta, appData, showSnackSimple, performSaveAs])
 
   // ── Export / Preview ───────────────────────────────────────────────────────
   const handleExport = async (mode: 'folder' | 'zip'): Promise<void> => {
@@ -297,9 +263,9 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
         mode
       })
       if (result.canceled) return
-      showSnack(`Exported to: ${result.path}`)
+      showSnackSimple(`Exported to: ${result.path}`)
     } catch (e) {
-      showSnack(`Export failed: ${e}`, 'error')
+      showSnackSimple(`Export failed: ${e}`, 'error')
     }
   }
 
@@ -311,9 +277,9 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
         appData: appData,
         projectDir: meta.projectDir
       })
-      showSnack('Preview opened')
+      showSnackSimple('Preview opened')
     } catch (e) {
-      showSnack(`Preview failed: ${e}`, 'error')
+      showSnackSimple(`Preview failed: ${e}`, 'error')
     }
   }
 
@@ -326,24 +292,18 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     try {
       await doSave(updated, appData)
     } catch (e) {
-      // Revert the rename if save fails
       setMeta(meta)
-      showSnack(`Rename failed: ${e}`, 'error')
+      showSnackSimple(`Rename failed: ${e}`, 'error')
       throw e
     }
   }
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useProjectShortcuts({
-    // Navigation
     onUndo: canUndo ? handleUndo : undefined,
     onRedo: canRedo ? handleRedo : undefined,
-
-    // File operations
     onSave: handleSave,
     onSaveAs: handleSaveAs,
-
-    // Preview and Export
     onPreview: handlePreview,
     onExportFolder: () => handleExport('folder'),
     onExportZip: () => handleExport('zip')
@@ -370,131 +330,26 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* ── Top bar ── */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          px: 3,
-          py: 1.5,
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          flexShrink: 0,
-          background: '#13161f'
+      <ProjectToolbar
+        templateName={templateName}
+        projectName={meta.name}
+        isDirty={isDirty}
+        autoSaveLabel={autoSaveLabel}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onBack={() => (isDirty ? setBackConfirm(true) : navigate('/'))}
+        onRename={() => {
+          setRenameValue(meta.name)
+          setRenameOpen(true)
         }}
-      >
-        <Tooltip title="Back to home">
-          <IconButton size="small" onClick={() => (isDirty ? setBackConfirm(true) : navigate('/'))}>
-            <ArrowBackIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        {/* Game type badge */}
-        <Chip
-          label={templateName}
-          size="small"
-          color="primary"
-          variant="outlined"
-          sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }}
-        />
-
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          <Typography
-            variant="h6"
-            sx={{
-              fontSize: '0.95rem',
-              fontWeight: 600,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {meta.name}
-          </Typography>
-          <Tooltip title="Rename project">
-            <IconButton
-              size="small"
-              sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}
-              onClick={() => {
-                setRenameValue(meta.name)
-                setRenameOpen(true)
-              }}
-            >
-              <EditIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Tooltip>
-          {isDirty && (
-            <Chip
-              label="unsaved"
-              size="small"
-              color="warning"
-              sx={{ height: 18, fontSize: '0.65rem' }}
-            />
-          )}
-          {autoSaveLabel && !isDirty && (
-            <Chip
-              label={autoSaveLabel}
-              size="small"
-              sx={{ height: 18, fontSize: '0.65rem', opacity: 0.4 }}
-            />
-          )}
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-          <Tooltip title="Undo (Ctrl+Z)">
-            <span>
-              <IconButton size="small" onClick={handleUndo} disabled={!canUndo}>
-                <UndoIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Redo (Ctrl+Y)">
-            <span>
-              <IconButton size="small" onClick={handleRedo} disabled={!canRedo}>
-                <RedoIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-
-          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-          <Tooltip title="Settings">
-            <IconButton size="small" onClick={() => setSettingsOpen(true)}>
-              <SettingsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Save (Ctrl+S)">
-            <Button
-              size="small"
-              startIcon={<SaveIcon />}
-              variant={isDirty ? 'contained' : 'outlined'}
-              color={isDirty ? 'primary' : 'inherit'}
-              onClick={handleSave}
-            >
-              Save
-            </Button>
-          </Tooltip>
-          <Tooltip title="Save As (Ctrl+Shift+S)">
-            <IconButton size="small" onClick={handleSaveAs}>
-              <SaveAsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Preview (Ctrl+P)">
-            <IconButton size="small" onClick={handlePreview}>
-              <PreviewIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Export">
-            <Button
-              size="small"
-              startIcon={<FileDownloadIcon />}
-              variant="outlined"
-              onClick={(e) => setExportAnchor(e.currentTarget)}
-            >
-              Export
-            </Button>
-          </Tooltip>
-        </Box>
-      </Box>
+        onSettings={() => setSettingsOpen(true)}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
+        onPreview={handlePreview}
+        onExport={(e) => setExportAnchor(e.currentTarget)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+      />
 
       {/* ── Editor ── */}
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
@@ -519,143 +374,49 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} hasProject />
 
       {/* ── Export menu ── */}
-      <Menu
-        anchorEl={exportAnchor}
-        open={Boolean(exportAnchor)}
-        onClose={() => setExportAnchor(null)}
-      >
-        <MenuItem onClick={() => handleExport('folder')}>
-          <ListItemIcon>
-            <DriveFileMoveIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Export to folder"
-            secondary={
-              <>
-                Copies game + assets
-                <Box
-                  component="span"
-                  sx={{ display: 'block', fontSize: '0.65rem', color: 'text.secondary' }}
-                >
-                  Ctrl+Shift+P
-                </Box>
-              </>
-            }
-          />
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => handleExport('zip')}>
-          <ListItemIcon>
-            <FolderZipIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Export as ZIP"
-            secondary={
-              <>
-                Single archive
-                <Box
-                  component="span"
-                  sx={{ display: 'block', fontSize: '0.65rem', color: 'text.secondary' }}
-                >
-                  Ctrl+Alt+P
-                </Box>
-              </>
-            }
-          />
-        </MenuItem>
-      </Menu>
+      <ExportMenu anchorEl={exportAnchor} onClose={() => setExportAnchor(null)} onExport={handleExport} />
 
       {/* ── Save As overwrite confirm ── */}
-      <Dialog
+      <SaveAsConfirmDialog
         open={!!saveAsConfirmFolder}
         onClose={() => setSaveAsConfirmFolder(null)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Overwrite existing project?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            That folder already contains a project. This will overwrite it.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSaveAsConfirmFolder(null)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="warning"
-            onClick={() => {
-              const f = saveAsConfirmFolder!
-              setSaveAsConfirmFolder(null)
-              performSaveAs(f)
-            }}
-          >
-            Overwrite
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={() => {
+          const f = saveAsConfirmFolder!
+          setSaveAsConfirmFolder(null)
+          performSaveAs(f)
+        }}
+      />
 
       {/* ── Rename dialog ── */}
-      <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Rename Project</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="Project name"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRenameOpen(false)}>Cancel</Button>
-          <Button onClick={handleRename} variant="contained" disabled={!renameValue.trim()}>
-            Rename
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <RenameDialog
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        currentValue={renameValue}
+        onChange={setRenameValue}
+        onConfirm={handleRename}
+      />
 
       {/* ── Back confirm ── */}
-      <Dialog open={backConfirm} onClose={() => setBackConfirm(false)}>
-        <DialogTitle>Unsaved changes</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Save before leaving?</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setBackConfirm(false)
-              navigate('/')
-            }}
-            color="error"
-          >
-            Discard &amp; leave
-          </Button>
-          <Button
-            onClick={async () => {
-              setBackConfirm(false)
-              await handleSave()
-              navigate('/')
-            }}
-            variant="contained"
-          >
-            Save &amp; leave
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <BackConfirmDialog
+        open={backConfirm}
+        onClose={() => setBackConfirm(false)}
+        onDiscard={() => {
+          setBackConfirm(false)
+          navigate('/')
+        }}
+        onSaveAndLeave={async () => {
+          setBackConfirm(false)
+          await handleSave()
+          navigate('/')
+        }}
+      />
 
       {/* ── Snackbar ── */}
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={SNACKBAR_AUTO_HIDE_MS}
+      <ProjectSnackbar
+        message={snack?.msg ?? null}
+        severity={snack?.severity ?? 'success'}
         onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={snack?.severity ?? 'success'} onClose={() => setSnack(null)}>
-          {snack?.msg}
-        </Alert>
-      </Snackbar>
+      />
     </Box>
   )
 }
