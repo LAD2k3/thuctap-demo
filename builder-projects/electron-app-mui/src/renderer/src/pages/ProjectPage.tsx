@@ -39,9 +39,9 @@ import {
   ProjectHistoryProvider,
   useProjectHistory
 } from '../context/ProjectHistoryContext'
-import { GAME_REGISTRY } from '../games/registry'
 import { useProjectShortcuts } from '../hooks/useProjectShortcuts'
-import { AnyAppData, GameTemplate, ProjectFile, ProjectMeta } from '../types'
+import { useTemplateManager } from '../hooks/useTemplates'
+import { AnyAppData, ProjectFile, ProjectMeta } from '../types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const AUTO_SAVE_DEBOUNCE_MS = 1000
@@ -77,6 +77,7 @@ interface ProjectPageInnerProps {
 function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps): JSX.Element {
   const navigate = useNavigate()
   const { resolved, setProjectSettings } = useSettings()
+  const manager = useTemplateManager()
 
   // Split project state: meta (file location, name) is separate from app data (game content)
   const [meta, setMeta] = useState<ProjectMeta | null>(
@@ -93,7 +94,6 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       : null
   )
   const [isDirty, setIsDirty] = useState(false)
-  const [templates, setTemplates] = useState<GameTemplate[]>([])
 
   const {
     present: appData,
@@ -116,11 +116,6 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     setIsDirty(true)
   }, [historyRedo])
 
-  // Load templates list for display names
-  useEffect(() => {
-    window.electronAPI.getTemplates().then(setTemplates)
-  }, [])
-
   // Sync project settings to context
   useEffect(() => {
     setProjectSettings(locationState?.data?.settings ?? null)
@@ -134,11 +129,12 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   // Update window title whenever meta or appData changes
   useEffect(() => {
     if (!meta || !templateId) return
-    const tName = templates.find((t) => t.id === templateId)?.name ?? templateId
+    const template = manager.getTemplate(templateId)
+    const tName = template?.name ?? templateId
     const title = buildTitle(tName, meta.name, meta.filePath)
     document.title = title
     window.electronAPI.setTitle(title)
-  }, [meta, templateId, templates])
+  }, [meta, templateId, manager])
 
   const [snack, setSnack] = useState<{
     msg: string
@@ -362,7 +358,8 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
     )
   }
 
-  const templateName = templates.find((t) => t.id === templateId)?.name ?? templateId
+  const template = manager.getTemplate(templateId)
+  const templateName = template?.name ?? templateId
   const autoSaveLabel =
     resolved.autoSave.mode === 'off'
       ? null
@@ -502,7 +499,7 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       {/* ── Editor ── */}
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         {(() => {
-          const entry = GAME_REGISTRY[templateId]
+          const entry = manager.getRegistryEntry(templateId)
           if (!entry)
             return (
               <Box sx={{ p: 4, textAlign: 'center' }}>
