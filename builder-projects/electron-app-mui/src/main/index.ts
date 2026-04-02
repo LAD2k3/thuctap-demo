@@ -10,6 +10,17 @@ import { createHandler } from './ipc-handlers'
 
 const isDev = process.env.NODE_ENV === 'development'
 
+// ── Backward Compatibility Flag ──────────────────────────────────────────────
+/**
+ * When true, asset paths that start with './', 'assets/', or './assets/' will be
+ * normalized to just the filename when loading old project files.
+ *
+ * This ensures that after opening and re-saving, all paths are in the new format.
+ *
+ * TODO: Remove this flag once all project files have been migrated to the new format.
+ */
+const ENABLE_BACKWARD_COMPAT_ASSET_PATHS = true
+
 // ── Persist a reference to the main window for modal dialogs ─────────────────
 let mainWindow: BrowserWindow | null = null
 
@@ -60,6 +71,45 @@ function copyDirSync(src: string, dest: string): void {
   }
 }
 
+/**
+ * Normalizes asset paths in project data by stripping './' and 'assets/' prefixes.
+ * This is called when loading old project files to migrate them to the new format.
+ * After normalization and re-save, paths will be stored as just filenames.
+ */
+function normalizeAssetPathsInProject(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj
+  if (Array.isArray(obj)) return obj.map((item) => normalizeAssetPathsInProject(item))
+  if (typeof obj !== 'object') return obj
+
+  const result: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    const lowerKey = key.toLowerCase()
+    const isImageKey = /(img|image|src|path|url|background)/.test(lowerKey)
+
+    if (isImageKey && typeof value === 'string' && ENABLE_BACKWARD_COMPAT_ASSET_PATHS) {
+      let normalized = value
+
+      // Strip leading './' if present
+      if (normalized.startsWith('./')) {
+        normalized = normalized.slice(2)
+      }
+
+      // Strip 'assets/' prefix if present (handles both 'assets/' and './assets/' after ./ stripped)
+      const assetsPrefix = PROJECT_ASSETS_DIR + '/'
+      if (normalized.startsWith(assetsPrefix)) {
+        normalized = normalized.slice(assetsPrefix.length)
+      }
+
+      result[key] = normalized
+    } else {
+      result[key] = normalizeAssetPathsInProject(value)
+    }
+  }
+
+  return result
+}
+
 function resolveAssetRelativePath(key: string, value: unknown): string | null {
   if (typeof value !== 'string') return null
   if (!value) return null
@@ -68,25 +118,14 @@ function resolveAssetRelativePath(key: string, value: unknown): string | null {
   const isImageKey = /(img|image|src|path|url|background)/.test(lowerKey)
   if (!isImageKey) return null
 
-  // Now we store only filenames in the project file
-  // Check if it's a relative path (no directory separators, or starts with assets/)
-  const cleanPath = value.startsWith('./') ? value.slice(2) : value
-  
-  // Handle old format: paths starting with assets/, images/, data/
-  const isTargetDir = /^(images|data|assets)/.test(cleanPath)
-  if (isTargetDir) {
-    // Extract just the filename from the path
-    return path.basename(cleanPath)
-  }
-  
   // New format: just the filename (no directory separators)
   // This is a valid asset reference if it doesn't contain path separators
   // and looks like a file (has an extension)
-  const hasPathSeparator = cleanPath.includes('/') || cleanPath.includes('\\')
-  if (!hasPathSeparator && path.extname(cleanPath)) {
-    return cleanPath
+  const hasPathSeparator = value.includes('/') || value.includes('\\')
+  if (!hasPathSeparator && path.extname(value)) {
+    return value
   }
-  
+
   return null
 }
 
@@ -181,7 +220,7 @@ function normalizeAssetPaths(obj: unknown, projectDir: string): unknown {
     const rel = resolveAssetRelativePath(key, value)
 
     if (rel) {
-      // rel is just the filename now, so prepend PROJECT_ASSETS_DIR
+      // rel is the filename (extracted from old or new format), prepend PROJECT_ASSETS_DIR
       const absPath = path.join(projectDir, PROJECT_ASSETS_DIR, rel)
       result[key] = `file://${absPath.split(path.sep).join('/')}`
       continue
@@ -195,8 +234,8 @@ function normalizeAssetPaths(obj: unknown, projectDir: string): unknown {
 
 /**
  * Resolves asset paths for export by prepending the export assets directory.
- * The project file stores only filenames, but the exported game expects
- * assets to be in assets/user/<filename>.
+ * Project files store only filenames (normalized at load time),
+ * but the exported game expects assets to be in assets/user/<filename>.
  */
 function resolveAssetPathsForExport(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj
@@ -209,7 +248,7 @@ function resolveAssetPathsForExport(obj: unknown): unknown {
     const rel = resolveAssetRelativePath(key, value)
 
     if (rel) {
-      // rel is just the filename, prepend EXPORT_ASSETS_DIR for the exported game
+      // rel is the filename, prepend EXPORT_ASSETS_DIR for the exported game
       result[key] = `${EXPORT_ASSETS_DIR}/${rel}`
       continue
     }
@@ -354,7 +393,13 @@ createHandler('open-project-file', async (_e, filePath?: string) => {
     resolved = result.filePaths[0]
   }
   const content = fs.readFileSync(resolved, 'utf-8')
-  return { filePath: resolved, data: JSON.parse(content) } as {
+  const projectFile = JSON.parse(content) as ProjectFile
+
+  // Normalize asset paths in appData (strip './' and 'assets/' prefixes)
+  // This migrates old project files to the new format on load
+  const normalizedAppData = normalizeAssetPathsInProject(projectFile.appData) as AnyAppData
+
+  return { filePath: resolved, data: { ...projectFile, appData: normalizedAppData } } as {
     filePath: string
     data: ProjectFile
   }
@@ -433,7 +478,7 @@ createHandler(
 )
 
 createHandler('resolve-asset-url', async (_e, projectDir: string, relativePath: string) => {
-  // relativePath is now just the filename, so prepend PROJECT_ASSETS_DIR
+  // relativePath is just the filename (normalized at project load time)
   const abs = path.join(projectDir, PROJECT_ASSETS_DIR, relativePath)
   return `file://${abs.replace(/\\/g, '/')}`
 })
