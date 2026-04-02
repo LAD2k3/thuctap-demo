@@ -12,9 +12,8 @@ export interface DraggableItemProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   isDragging: boolean;
   onDragStart: (itemId: string) => void;
-}// --- Component Cột Group ---
+} // --- Component Cột Group ---
 export interface GroupColumnProps {
   group: Group;
   items: Item[];
 }
-

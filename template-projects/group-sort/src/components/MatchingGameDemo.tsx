@@ -15,6 +15,7 @@ import { MY_APP_DATA } from "../data";
 import type { Item } from "../types/objects";
 import DraggableItem, { ItemCard } from "./DraggableItem";
 import GroupColumn from "./GroupColumn";
+import { ImageOrEmoji } from "./ImageOrEmoji";
 
 const MatchingGameDemo: React.FC = () => {
   const [unansweredItems, setUnansweredItems] = useState<Item[]>(
@@ -211,10 +212,10 @@ const MatchingGameDemo: React.FC = () => {
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={group.imagePath}
+                      <ImageOrEmoji
+                        imagePath={group.imagePath}
                         alt={group.name}
-                        className="w-12 h-12 object-contain"
+                        size="large"
                       />
                       <h3 className="text-xl font-semibold text-gray-800">
                         {group.name}
@@ -230,10 +231,10 @@ const MatchingGameDemo: React.FC = () => {
                         key={item.id}
                         className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm"
                       >
-                        <img
-                          src={item.imagePath}
+                        <ImageOrEmoji
+                          imagePath={item.imagePath}
                           alt={item.name}
-                          className="w-8 h-8 object-contain"
+                          size="tiny"
                         />
                         <span className="text-sm text-gray-700">
                           {item.name}
@@ -273,6 +274,12 @@ const MatchingGameDemo: React.FC = () => {
             Ghép Đôi Vui Vẻ
           </h1>
           <div className="flex items-center gap-4">
+            <button
+              onClick={handleRetry}
+              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-full shadow-md transition-colors"
+            >
+              🔄 Thử lại
+            </button>
             <button
               onClick={() => setShowTutorial(true)}
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-full shadow-md transition-colors"

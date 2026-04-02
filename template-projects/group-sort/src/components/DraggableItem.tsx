@@ -2,6 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import type { Item } from "../types/objects";
 import { layoutTransition } from "../config";
+import { ImageOrEmoji } from "./ImageOrEmoji";
 
 interface Props {
   item: Item;
@@ -22,11 +23,7 @@ export const ItemCard: React.FC<Props & { style?: React.CSSProperties }> = ({
     style={style}
     transition={layoutTransition}
   >
-    <img
-      src={item.imagePath}
-      alt={item.name}
-      className="w-24 h-24 object-contain pointer-events-none"
-    />
+    <ImageOrEmoji imagePath={item.imagePath} alt={item.name} size="tiny" />
   </motion.div>
 );
 

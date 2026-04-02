@@ -1,4 +1,3 @@
-
 export const layoutTransition = {
   type: "spring" as const,
   stiffness: 300,
