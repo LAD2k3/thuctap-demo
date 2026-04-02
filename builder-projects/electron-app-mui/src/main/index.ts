@@ -4,6 +4,7 @@ import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-insta
 import * as fs from 'fs'
 import * as path from 'path'
 import type { AnyAppData, FolderStatus, GameTemplate, GlobalSettings, ProjectFile } from '../shared'
+import { EXPORT_ASSETS_DIR, PROJECT_ASSETS_DIR } from '../shared'
 import { prepareAppDataForTemplate } from './gameRegistry'
 import { createHandler } from './ipc-handlers'
 
@@ -61,17 +62,32 @@ function copyDirSync(src: string, dest: string): void {
 
 function resolveAssetRelativePath(key: string, value: unknown): string | null {
   if (typeof value !== 'string') return null
+  if (!value) return null
 
   const lowerKey = key.toLowerCase()
   const isImageKey = /(img|image|src|path|url|background)/.test(lowerKey)
   if (!isImageKey) return null
 
+  // Now we store only filenames in the project file
+  // Check if it's a relative path (no directory separators, or starts with assets/)
   const cleanPath = value.startsWith('./') ? value.slice(2) : value
-
+  
+  // Handle old format: paths starting with assets/, images/, data/
   const isTargetDir = /^(images|data|assets)/.test(cleanPath)
-  if (!isTargetDir) return null
-
-  return cleanPath
+  if (isTargetDir) {
+    // Extract just the filename from the path
+    return path.basename(cleanPath)
+  }
+  
+  // New format: just the filename (no directory separators)
+  // This is a valid asset reference if it doesn't contain path separators
+  // and looks like a file (has an extension)
+  const hasPathSeparator = cleanPath.includes('/') || cleanPath.includes('\\')
+  if (!hasPathSeparator && path.extname(cleanPath)) {
+    return cleanPath
+  }
+  
+  return null
 }
 
 /** Recursively collect all values of keys named 'imagePath' or 'imageUrl' that reference assets/ */
@@ -111,7 +127,7 @@ function collectUsedAssetsWithHistory(currentData: object, history?: object[]): 
 
 /** Delete files in <projectDir>/assets/ that are not in the used set */
 function purgeUnusedAssets(projectDir: string, projectData: object, history?: object[]): void {
-  const assetsDir = path.join(projectDir, 'assets')
+  const assetsDir = path.join(projectDir, PROJECT_ASSETS_DIR)
   if (!fs.existsSync(assetsDir)) return
 
   const usedPaths = collectUsedAssetsWithHistory(projectData, history)
@@ -130,8 +146,8 @@ function purgeUnusedAssets(projectDir: string, projectData: object, history?: ob
 
 /** Copy only used assets to a destination directory */
 function copyUsedAssetsOnly(projectDir: string, destDir: string, projectData: object): void {
-  const srcAssetsDir = path.join(projectDir, 'assets')
-  const destAssetsDir = path.join(destDir, 'assets', 'user')
+  const srcAssetsDir = path.join(projectDir, PROJECT_ASSETS_DIR)
+  const destAssetsDir = path.join(destDir, EXPORT_ASSETS_DIR)
 
   if (!fs.existsSync(srcAssetsDir)) return
 
@@ -165,12 +181,40 @@ function normalizeAssetPaths(obj: unknown, projectDir: string): unknown {
     const rel = resolveAssetRelativePath(key, value)
 
     if (rel) {
-      const absPath = path.join(projectDir, rel)
+      // rel is just the filename now, so prepend PROJECT_ASSETS_DIR
+      const absPath = path.join(projectDir, PROJECT_ASSETS_DIR, rel)
       result[key] = `file://${absPath.split(path.sep).join('/')}`
       continue
     }
 
     result[key] = normalizeAssetPaths(value, projectDir)
+  }
+
+  return result
+}
+
+/**
+ * Resolves asset paths for export by prepending the export assets directory.
+ * The project file stores only filenames, but the exported game expects
+ * assets to be in assets/user/<filename>.
+ */
+function resolveAssetPathsForExport(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj
+  if (Array.isArray(obj)) return obj.map((item) => resolveAssetPathsForExport(item))
+  if (typeof obj !== 'object') return obj
+
+  const result: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    const rel = resolveAssetRelativePath(key, value)
+
+    if (rel) {
+      // rel is just the filename, prepend EXPORT_ASSETS_DIR for the exported game
+      result[key] = `${EXPORT_ASSETS_DIR}/${rel}`
+      continue
+    }
+
+    result[key] = resolveAssetPathsForExport(value)
   }
 
   return result
@@ -352,8 +396,8 @@ createHandler(
     const { projectData, oldProjectDir, newFolder, history } = opts
 
     // Copy assets from old location
-    const oldAssets = path.join(oldProjectDir, 'assets')
-    if (fs.existsSync(oldAssets)) copyDirSync(oldAssets, path.join(newFolder, 'assets'))
+    const oldAssets = path.join(oldProjectDir, PROJECT_ASSETS_DIR)
+    if (fs.existsSync(oldAssets)) copyDirSync(oldAssets, path.join(newFolder, PROJECT_ASSETS_DIR))
 
     // Write project file
     const newFilePath = path.join(newFolder, 'project.mgproj')
@@ -377,18 +421,20 @@ createHandler('pick-image', async () => {
 createHandler(
   'import-image',
   async (_e, sourcePath: string, projectDir: string, desiredNamePrefix: string) => {
-    const assetsDir = path.join(projectDir, 'assets')
+    const assetsDir = path.join(projectDir, PROJECT_ASSETS_DIR)
     fs.mkdirSync(assetsDir, { recursive: true })
     const ext = path.extname(sourcePath).toLowerCase()
     const uniqueName = `${desiredNamePrefix}-${Date.now()}-${Math.random()}`
     const destName = `${uniqueName}${ext}`
     fs.copyFileSync(sourcePath, path.join(assetsDir, destName))
-    return `assets/${destName}`
+    // Store only the filename - the 'assets/' prefix is added by the renderer/main process
+    return destName
   }
 )
 
 createHandler('resolve-asset-url', async (_e, projectDir: string, relativePath: string) => {
-  const abs = path.join(projectDir, relativePath)
+  // relativePath is now just the filename, so prepend PROJECT_ASSETS_DIR
+  const abs = path.join(projectDir, PROJECT_ASSETS_DIR, relativePath)
   return `file://${abs.replace(/\\/g, '/')}`
 })
 
@@ -479,7 +525,9 @@ createHandler(
     const htmlPath = path.join(gameDir, 'index.html')
     if (!fs.existsSync(htmlPath)) throw new Error(`Template HTML not found for: ${templateId}`)
 
-    const templateData = prepareAppDataForTemplate(templateId, appData)
+    // Resolve asset paths for export (prepends assets/user/ to filenames)
+    const exportedAppData = resolveAssetPathsForExport(appData) as object
+    const templateData = prepareAppDataForTemplate(templateId, exportedAppData)
     const injectedHtml = injectAppData(fs.readFileSync(htmlPath, 'utf-8'), templateData)
 
     if (mode === 'folder') {
@@ -532,15 +580,15 @@ async function exportToZip(
     // Add injected index.html
     archive.append(injectedHtml, { name: 'index.html' })
     // Add only used project assets (not all assets)
-    const srcAssetsDir = path.join(projectDir, 'assets')
+    const srcAssetsDir = path.join(projectDir, PROJECT_ASSETS_DIR)
     if (fs.existsSync(srcAssetsDir)) {
       const usedPaths = collectUsedAssets(appData)
       const usedFiles = new Set([...usedPaths].map((p) => path.basename(p)))
-      // Add each used file individually
+      // Add each used file individually to assets/user/
       for (const file of usedFiles) {
         const filePath = path.join(srcAssetsDir, file)
         if (fs.existsSync(filePath)) {
-          archive.file(filePath, { name: `assets/user/${file}` })
+          archive.file(filePath, { name: path.posix.join(EXPORT_ASSETS_DIR, file) })
         }
       }
     }

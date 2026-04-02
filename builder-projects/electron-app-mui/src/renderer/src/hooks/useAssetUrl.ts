@@ -1,8 +1,9 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
 
 /**
- * Resolves a project-relative asset path (e.g. "assets/cat.png") to a
+ * Resolves a project-relative asset path (just the filename) to a
  * displayable file:// URL so <img> tags work in the Electron renderer.
+ * The filename is prefixed with the project assets directory ('assets/').
  */
 export function useAssetUrl(
   projectDir: string,

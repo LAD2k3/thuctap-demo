@@ -9,7 +9,23 @@
  * - IPC_CHANNEL_DEFINITIONS: Maps channel names to their handler function signatures
  * - IPCChannels: Type-safe channel name constants
  * - AppData types for all game templates
+ * - Asset path constants for consistent path resolution
  */
+
+// ── Asset Path Constants ──────────────────────────────────────────────────────
+/**
+ * Directory where assets are stored in the project folder (during editing/saving).
+ * All imported images are stored in <projectDir>/assets/<filename>
+ */
+export const PROJECT_ASSETS_DIR = 'assets'
+
+/**
+ * Directory where assets are stored in the exported game.
+ * In the exported game, assets are placed in <exportDir>/assets/user/<filename>
+ * This separation makes it clear that user assets are in a subdirectory,
+ * and helps surface path resolution bugs early.
+ */
+export const EXPORT_ASSETS_DIR = 'assets/user'
 
 // ── AppData Types ─────────────────────────────────────────────────────────────
 // These types are used by both main process (for transforms) and renderer (for editors)
