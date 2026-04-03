@@ -33,6 +33,10 @@ interface DraggablePointProps {
  * callback, so newly mounted elements don't get counter-scaled until the next
  * zoom/pan event fires. This version applies the counter-scale immediately on
  * mount using the current transformState.scale, then subscribes to updates.
+ *
+ * IMPORTANT: This wrapper creates a counter-scaled coordinate space where
+ * 1 unit = 1 screen pixel. All positioning (left, top, margin, etc.) of
+ * children is in screen pixels, NOT content pixels.
  */
 function FixedKeepScale({
   children,
@@ -53,9 +57,8 @@ function FixedKeepScale({
     [instance]
   )
 
-  // Apply counter-scale immediately on mount, then subscribe to future changes
   useEffect(() => {
-    // Apply immediately
+    // Apply immediately on mount so newly created elements are counter-scaled
     applyCounterScale(instance.transformState.scale)
     // Subscribe to future transform changes
     return instance.onChange((ctx) => {
@@ -69,6 +72,15 @@ function FixedKeepScale({
     </div>
   )
 }
+
+/** Extract solid rgb(r, g, b) from an rgba(...) color string */
+function solidColor(rgba: string): string {
+  const m = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  return m ? `rgb(${m[1]}, ${m[2]}, ${m[3]})` : rgba
+}
+
+const BADGE_SIZE = 32
+const HALF_BADGE = BADGE_SIZE / 2 // 16
 
 function DraggablePoint({
   point,
@@ -84,15 +96,13 @@ function DraggablePoint({
   const [showTooltip, setShowTooltip] = useState(false)
   const [dragPosition, setDragPosition] = useState({ x: point.xPercent, y: point.yPercent })
   const pointColor = getPointColor(index)
+  const ringColor = solidColor(pointColor.bg)
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
       e.preventDefault()
-
-      // Select the point on click (but not during drag)
       onSelect(point.id)
-
       setIsDragging(true)
       setShowTooltip(false)
       setDragPosition({ x: point.xPercent, y: point.yPercent })
@@ -105,43 +115,29 @@ function DraggablePoint({
 
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault()
-
-      // Get the content component to calculate percentages
       const content = pointRef.current?.closest('.react-transform-component')
       if (!content) return
 
       const contentRect = content.getBoundingClientRect()
-
-      // Calculate the position within the scaled/panned content
-      const relativeX = (e.clientX - contentRect.left) / contentRect.width
-      const relativeY = (e.clientY - contentRect.top) / contentRect.height
-
-      // Convert to percentage (0-100)
-      const newPercentX = Math.max(0, Math.min(100, relativeX * 100))
-      const newPercentY = Math.max(0, Math.min(100, relativeY * 100))
-
-      // Update visual position immediately (local state, no onChange)
+      const newPercentX = Math.max(0, Math.min(100, ((e.clientX - contentRect.left) / contentRect.width) * 100))
+      const newPercentY = Math.max(0, Math.min(100, ((e.clientY - contentRect.top) / contentRect.height) * 100))
       setDragPosition({ x: newPercentX, y: newPercentY })
     }
 
     const handleMouseUp = (e: MouseEvent) => {
       e.preventDefault()
       setIsDragging(false)
-
-      // Commit the final position to parent
       onDragEnd(point.id, dragPosition.x, dragPosition.y)
     }
 
     window.addEventListener('mousemove', handleMouseMove, { passive: false })
     window.addEventListener('mouseup', handleMouseUp, { passive: false })
-
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
   }, [isDragging, point.id, dragPosition.x, dragPosition.y, onDragEnd])
 
-  // Use drag position while dragging, otherwise use the actual point position
   const displayX = isDragging ? dragPosition.x : point.xPercent
   const displayY = isDragging ? dragPosition.y : point.yPercent
 
@@ -169,61 +165,49 @@ function DraggablePoint({
         zIndex: isDragging || isSelected ? 1000 : 100
       }}
     >
-      {/* Pulsing Ring Animation for Selected Point */}
+      {/* ── Pulsing Ring (selected point) ───────────────────────────── */}
       {isSelected && (
-        <FixedKeepScale
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            transform: 'translate(-50%, -50%)'
-          }}
-        >
+        <FixedKeepScale style={{ position: 'absolute', width: 0, height: 0 }}>
           <motion.div
             style={{
-              width: 32,
-              height: 32,
+              position: 'absolute',
               borderRadius: '50%',
-              border: `2px solid ${pointColor.bg}`,
-              pointerEvents: 'none'
+              border: `3px solid ${ringColor}`,
+              pointerEvents: 'none',
+              // Start at BADGE_SIZE centered on anchor, expand to +24px
+              width: BADGE_SIZE,
+              height: BADGE_SIZE,
+              left: -HALF_BADGE,
+              top: -HALF_BADGE
             }}
             animate={{
-              width: [32, 56],
-              height: [32, 56],
-              opacity: [0.8, 0],
-              marginTop: [-16, -28],
-              marginLeft: [-16, -28]
+              width: [BADGE_SIZE, BADGE_SIZE, BADGE_SIZE + 24],
+              height: [BADGE_SIZE, BADGE_SIZE, BADGE_SIZE + 24],
+              left: [-HALF_BADGE, -HALF_BADGE, -(HALF_BADGE + 12)],
+              top: [-HALF_BADGE, -HALF_BADGE, -(HALF_BADGE + 12)],
+              opacity: [0, 0.9, 0]
             }}
             transition={{
-              duration: 1.5,
+              duration: 1.8,
               repeat: Infinity,
-              ease: 'easeOut'
+              ease: 'easeOut',
+              // 0%→10%: quick fade-in (no flash), 10%→75%: full opacity while
+              // staying at base size, 75%→100%: expand + fade-out
+              times: [0, 0.1, 1]
             }}
           />
         </FixedKeepScale>
       )}
 
-      {/* Point Badge */}
-      <FixedKeepScale
-        style={{
-          width: 32,
-          height: 32,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          transform: 'translate(-50%, -50%)'
-        }}
-      >
+      {/* ── Point Badge ─────────────────────────────────────────────── */}
+      <FixedKeepScale style={{ position: 'absolute', width: 0, height: 0 }}>
         <motion.div
-          animate={isHovered && !isDragging ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-          transition={{
-            duration: 0.8,
-            repeat: isHovered && !isDragging ? Infinity : 0,
-            ease: 'easeInOut'
-          }}
           style={{
-            width: '100%',
-            height: '100%',
+            position: 'absolute',
+            width: BADGE_SIZE,
+            height: BADGE_SIZE,
+            left: -HALF_BADGE,
+            top: -HALF_BADGE,
             borderRadius: '50%',
             background: pointColor.bg,
             color: pointColor.text,
@@ -240,32 +224,39 @@ function DraggablePoint({
             userSelect: 'none',
             cursor: isDragging ? 'grabbing' : 'grab'
           }}
+          animate={isHovered && !isDragging ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+          transition={{
+            duration: 0.8,
+            repeat: isHovered && !isDragging ? Infinity : 0,
+            ease: 'easeInOut'
+          }}
         >
           {index + 1}
         </motion.div>
       </FixedKeepScale>
 
-      {/* Tooltip on hover */}
+      {/* ── Tooltip on hover ────────────────────────────────────────── */}
       {showTooltip && point.text && (
-        <FixedKeepScale
-          style={{
-            position: 'absolute',
-            top: 20,
-            left: 0,
-            transform: 'translateX(-50%)'
-          }}
-        >
+        <FixedKeepScale style={{ position: 'absolute', width: 0, height: 0 }}>
           <Box
             sx={{
+              position: 'absolute',
+              left: 0,
+              top: HALF_BADGE + 4,
+              /* Center horizontally on the anchor */
+              transform: 'translateX(-50%)',
+              /* Fit content width — no trailing blank space */
+              display: 'inline-block',
+              maxWidth: 200,
               px: 1.5,
               py: 0.75,
               bgcolor: 'rgba(0,0,0,0.85)',
               color: '#fff',
               borderRadius: 1,
               fontSize: '0.8rem',
+              lineHeight: 1.2,
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
-              maxWidth: 200,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
@@ -295,17 +286,14 @@ export function ImageViewer({
   const [imageUrl, setImageUrl] = useState<string>('')
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // Resolve the asset URL
   useEffect(() => {
     let mounted = true
     const loadUrl = async () => {
       try {
         const url = await window.electronAPI.resolveAssetUrl(projectDir, imagePath)
-        if (mounted) {
-          setImageUrl(url)
-        }
-      } catch (error) {
-        console.error('Failed to resolve asset URL:', error)
+        if (mounted) setImageUrl(url)
+      } catch {
+        /* ignore */
       }
     }
     loadUrl()
@@ -314,36 +302,23 @@ export function ImageViewer({
     }
   }, [projectDir, imagePath])
 
-  // Handle double-click to create point
   const handleImageDoubleClick = useCallback(
     (e: React.MouseEvent) => {
-      // Don't add point if clicking on an existing point
-      if ((e.target as HTMLElement).closest('.draggable-point')) {
-        return
-      }
+      if ((e.target as HTMLElement).closest('.draggable-point')) return
 
       const wrapper = e.currentTarget.closest('.react-transform-wrapper')
       if (!wrapper) return
-
       const content = wrapper.querySelector('.react-transform-component')
       if (!content) return
 
       const contentRect = content.getBoundingClientRect()
-
-      // Calculate the position within the scaled/panned content
-      const relativeX = (e.clientX - contentRect.left) / contentRect.width
-      const relativeY = (e.clientY - contentRect.top) / contentRect.height
-
-      // Convert to percentage (0-100)
-      const xPercent = Math.max(0, Math.min(100, relativeX * 100))
-      const yPercent = Math.max(0, Math.min(100, relativeY * 100))
-
+      const xPercent = Math.max(0, Math.min(100, ((e.clientX - contentRect.left) / contentRect.width) * 100))
+      const yPercent = Math.max(0, Math.min(100, ((e.clientY - contentRect.top) / contentRect.height) * 100))
       onImageDoubleClick(xPercent, yPercent)
     },
     [onImageDoubleClick]
   )
 
-  // Add point at center of current view
   const handleAddPointAtCenter = useCallback(() => {
     if (!transformComponentRef.current || !wrapperRef.current) {
       onShowWarning('Cannot determine view center')
@@ -352,7 +327,6 @@ export function ImageViewer({
 
     const wrapper = wrapperRef.current
     const content = wrapper.querySelector('.react-transform-component')
-
     if (!content) {
       onShowWarning('Cannot determine view center')
       return
@@ -361,38 +335,21 @@ export function ImageViewer({
     const wrapperRect = wrapper.getBoundingClientRect()
     const contentRect = content.getBoundingClientRect()
 
-    // Center of the wrapper in screen coordinates
-    const wrapperCenterX = wrapperRect.left + wrapperRect.width / 2
-    const wrapperCenterY = wrapperRect.top + wrapperRect.height / 2
+    const relativeX = (wrapperRect.left + wrapperRect.width / 2 - contentRect.left) / contentRect.width
+    const relativeY = (wrapperRect.top + wrapperRect.height / 2 - contentRect.top) / contentRect.height
 
-    // Convert to content coordinates
-    const relativeX = (wrapperCenterX - contentRect.left) / contentRect.width
-    const relativeY = (wrapperCenterY - contentRect.top) / contentRect.height
-
-    // Check if center is within the image bounds (0-100%)
     if (relativeX < 0 || relativeX > 1 || relativeY < 0 || relativeY > 1) {
-      onShowWarning(
-        'The center of the view is outside the image. Zoom or pan to show the image center.'
-      )
+      onShowWarning('The center of the view is outside the image. Zoom or pan to show the image center.')
       return
     }
 
-    // Convert to percentage
-    const xPercent = relativeX * 100
-    const yPercent = relativeY * 100
-
-    onAddPointAtCenter(xPercent, yPercent)
+    onAddPointAtCenter(relativeX * 100, relativeY * 100)
   }, [onAddPointAtCenter, onShowWarning])
 
-  // Expose the add point at center function to parent via window event
   useEffect(() => {
-    const handleCustomEvent = () => {
-      handleAddPointAtCenter()
-    }
+    const handleCustomEvent = () => handleAddPointAtCenter()
     window.addEventListener('labelled-diagram-add-point-center', handleCustomEvent)
-    return () => {
-      window.removeEventListener('labelled-diagram-add-point-center', handleCustomEvent)
-    }
+    return () => window.removeEventListener('labelled-diagram-add-point-center', handleCustomEvent)
   }, [handleAddPointAtCenter])
 
   return (
@@ -411,29 +368,18 @@ export function ImageViewer({
         allowRightClickPan: false,
         allowMiddleClickPan: false
       }}
-      wheel={{
-        step: 0.2,
-        disabled: false
-      }}
+      wheel={{ step: 0.2, disabled: false }}
     >
       <TransformComponent
-        wrapperStyle={{
-          width: '100%',
-          height: '100%',
-          cursor: 'default'
-        }}
+        wrapperStyle={{ width: '100%', height: '100%', cursor: 'default' }}
         wrapperClass="image-viewer-wrapper"
         contentClass="image-viewer-content"
       >
         <div
           ref={wrapperRef}
-          style={{
-            position: 'relative',
-            display: 'inline-block'
-          }}
+          style={{ position: 'relative', display: 'inline-block' }}
           onDoubleClick={handleImageDoubleClick}
         >
-          {/* The Image */}
           {imageUrl && (
             <img
               src={imageUrl}
@@ -449,7 +395,6 @@ export function ImageViewer({
             />
           )}
 
-          {/* Points Overlay */}
           <div
             style={{
               position: 'absolute',
@@ -460,11 +405,11 @@ export function ImageViewer({
               pointerEvents: 'none'
             }}
           >
-            {points.map((point, index) => (
+            {points.map((point, pointIndex) => (
               <div key={point.id} className="draggable-point" style={{ pointerEvents: 'auto' }}>
                 <DraggablePoint
                   point={point}
-                  index={index}
+                  index={pointIndex}
                   isSelected={point.id === selectedPointId}
                   getPointColor={getPointColor}
                   onDragEnd={onPointDrag}
