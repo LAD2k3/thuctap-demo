@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import Hole from "./Hole";
-import type { Question, Answer, RoundAnswer } from "../type";
+import type { Question, RoundAnswer, AnswerPool } from "../type";
+import audioManagerInstance from "../utils/AudioManager-v2";
 
 const TOTAL = 10;
 
 type Props = {
   currentIndex: number,
   question: Question;
-  answerPool: Answer[];
+  answerPool: AnswerPool;
   onCorrect: () => void;
   isPlaying: boolean
 };
@@ -27,6 +28,8 @@ export default function GamePage({
 
   const prevIndexes = useRef<number[]>([]);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const roundTimeRef = useRef<number>(0);
 
   // 👉 thêm cho 3 lượt
   const roundRef = useRef(0);
@@ -41,13 +44,22 @@ export default function GamePage({
     }
   }
 
+  const createTimeoutRef = (indexes: number[], delay?: number) => {
+    clearTimeoutRef();
+
+    timeoutRef.current = setTimeout(() => {
+      autoHideMoles(indexes);
+    }, delay ?? roundTimeRef.current);
+  };
+
   useEffect(() => {
     if (!isPlaying) return
-    // spawnMoles();
-    autoHideMoles(activeIndexes)
+
+    autoHideMoles(activeIndexes);
+
     return () => {
-      clearTimeoutRef()
-    };
+      clearTimeoutRef();
+    }
   }, [isPlaying]);
 
   const generateAnswers = (count: number, forceCorrect = false): RoundAnswer[] => {
@@ -58,7 +70,7 @@ export default function GamePage({
       correct: true
     };
 
-    const otherPool = answerPool.filter(
+    const otherPool = answerPool.all.filter(
       a => a.groupId !== question.groupId
     );
 
@@ -74,44 +86,9 @@ export default function GamePage({
 
     while (result.length < count) {
       let candidate: RoundAnswer | null = null;
-
-      const type = Math.random();
-
-      if (type < 0.33) {
-        // cặp đúng của câu khác
-        const pick = otherPool[Math.floor(Math.random() * otherPool.length)];
-        if (pick) {
-          candidate = { ...pick, correct: false };
-        }
-      } else if (type < 0.66) {
-        // mix: text đúng + image khác
-        const pick = otherPool[Math.floor(Math.random() * otherPool.length)];
-        if (pick) {
-          candidate = {
-            text: correct.text,
-            image: pick.image,
-            groupId: 0,
-            correct: false
-          };
-        }
-      } else {
-        // mix: image đúng + text khác
-        const pick = otherPool[Math.floor(Math.random() * otherPool.length)];
-        if (pick) {
-          candidate = {
-            text: pick.text,
-            image: correct.image,
-            groupId: 0,
-            correct: false
-          };
-        }
-      }
-
-      if (!candidate) continue;
-
+      const pick = otherPool[Math.floor(Math.random() * otherPool.length)];
+      candidate = { ...pick, correct: false };
       const key = getKey(candidate);
-
-      // ❗ CHỐT: đảm bảo UNIQUE
       if (used.has(key)) continue;
 
       used.add(key);
@@ -125,8 +102,13 @@ export default function GamePage({
     clearTimeoutRef()
 
     roundRef.current += 1;
-
-    const count = Math.max(2, Math.floor(Math.random() * 3) + 1);
+    const maxNumberOfMoles = 5;
+    const minNumberOfMoles = 1;
+    const count = Math.min(
+      Math.max(
+        Math.floor(Math.random() * answerPool.all.length),
+        minNumberOfMoles),
+      maxNumberOfMoles);
 
     const all = Array.from({ length: TOTAL }, (_, i) => i + 1);
 
@@ -163,9 +145,10 @@ export default function GamePage({
 
     const ROUND_TIME = Math.random() * 1000 + 2500;
 
-    timeoutRef.current = setTimeout(() => {
-      autoHideMoles(next);
-    }, ROUND_TIME);
+    startTimeRef.current = Date.now();
+    roundTimeRef.current = ROUND_TIME;
+
+    createTimeoutRef(next);
   };
 
   const autoHideMoles = (indexes: number[]) => {
@@ -198,24 +181,29 @@ export default function GamePage({
       [index]: result
     }));
 
+    clearTimeoutRef()
     if (answer.correct) {
-      setGoingDown(prev => [...prev, ...activeIndexes, index])
+      audioManagerInstance.play('dizzy', 1);
+      const interval = setInterval(() => {
+        audioManagerInstance.play('dizzy', 1);
+      }, 1000)
+      setGoingDown(prev => [...prev, ...activeIndexes])
       setActiveIndexes([])
-      clearTimeoutRef()
       setTimeout(() => {
         onCorrect();
       }, 5000);
+      setTimeout(() => {
+        clearInterval(interval);
+      }, 4000);
     } else {
+      audioManagerInstance.play('buzz', 0.3);
+      const elapsed = Date.now() - startTimeRef.current;
+      const remaining = Math.max(roundTimeRef.current - elapsed, 0);
       setGoingDown(prev => [...prev, index]);
       setActiveIndexes(prev => prev.filter(i => i !== index));
+      createTimeoutRef(activeIndexes.filter(i => i !== index), remaining);
     }
   };
-
-  useEffect(() => {
-    if (activeIndexes.length === 0) {
-      // spawnMoles();
-    }
-  }, [activeIndexes]);
 
   return (
     <div className="page">
@@ -225,7 +213,7 @@ export default function GamePage({
         <div className="sign-box-wood"></div>
         <div className="container">
           <div className="sign-text">{currentIndex + 1 + ". " + question.question}</div>
-          <img className="question-img" src={question.questionImage} alt="" />
+          {question.questionImage && <img className="question-img" src={question.questionImage} alt="" />}
         </div>
       </div>
 

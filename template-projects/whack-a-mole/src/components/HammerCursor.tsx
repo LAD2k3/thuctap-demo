@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import audioManagerInstance from "../utils/AudioManager-v2";
 
 export default function HammerCursor() {
     const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -11,6 +12,7 @@ export default function HammerCursor() {
 
         const down = () => {
             setHit(true);
+            audioManagerInstance.play('hit', 0.2);
             setTimeout(() => setHit(false), 120);
         };
 

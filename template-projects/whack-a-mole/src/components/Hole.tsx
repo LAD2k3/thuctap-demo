@@ -17,17 +17,14 @@ export default function Hole({
     hitState,
     onClick,
 }: Props) {
-    if (goingDown && hitState) {
-        console.log(`${active ? "up" : (goingDown ? "down" : "")} ${hitState || ""}`)
-    }
     return (
         <div onClick={() => active && onClick(index)}>
             <div
                 className={`moles-hole ${active ? "up" : (goingDown ? "down" : "")} ${hitState}`}
             >
                 <div className="mole-bubble">
-                    <img src={data?.image} alt="" />
-                    <div>{data?.text}</div>
+                    {data?.image && <img src={data.image} alt="" />}
+                    {data?.text && <div>{data.text}</div>}
                 </div>
             </div>
         </div>
