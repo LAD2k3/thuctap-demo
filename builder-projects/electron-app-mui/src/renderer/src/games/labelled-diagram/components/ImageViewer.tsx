@@ -25,34 +25,8 @@ interface DraggablePointProps {
   getPointColor: (index: number) => { bg: string; text: string }
   onDragEnd: (id: string, xPercent: number, yPercent: number) => void
   onSelect: (id: string) => void
-  /** Transform state from the library — provided by the overlay parent */
-  transformState: {
-    positionX: number
-    positionY: number
-    contentRenderedWidth: number
-    contentRenderedHeight: number
-  }
-}
-
-/** Extract solid rgb(r, g, b) from an rgba(...) color string */
-function solidColor(rgba: string): string {
-  const m = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
-  return m ? `rgb(${m[1]}, ${m[2]}, ${m[3]})` : rgba
-}
-
-/** Compute the overlay (wrapper-relative) pixel position for a point */
-function computePointPosition(
-  xPercent: number,
-  yPercent: number,
-  positionX: number,
-  positionY: number,
-  contentRenderedWidth: number,
-  contentRenderedHeight: number
-): { x: number; y: number } {
-  return {
-    x: positionX + (xPercent / 100) * contentRenderedWidth,
-    y: positionY + (yPercent / 100) * contentRenderedHeight
-  }
+  /** Current zoom scale from the library */
+  scale: number
 }
 
 const BADGE_SIZE = 32
@@ -65,7 +39,7 @@ function DraggablePoint({
   getPointColor,
   onDragEnd,
   onSelect,
-  transformState
+  scale
 }: DraggablePointProps): React.ReactElement {
   const pointRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -73,7 +47,6 @@ function DraggablePoint({
   const [showTooltip, setShowTooltip] = useState(false)
   const [dragPosition, setDragPosition] = useState({ x: point.xPercent, y: point.yPercent })
   const pointColor = getPointColor(index)
-  const ringColor = solidColor(pointColor.bg)
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -124,26 +97,25 @@ function DraggablePoint({
   const displayX = isDragging ? dragPosition.x : point.xPercent
   const displayY = isDragging ? dragPosition.y : point.yPercent
 
-  const { x: badgeX, y: badgeY } = computePointPosition(
-    displayX,
-    displayY,
-    transformState.positionX,
-    transformState.positionY,
-    transformState.contentRenderedWidth,
-    transformState.contentRenderedHeight
-  )
+  // Counter-scale: make the container appear at 1/scale so the badge
+  // inside renders at true pixel size. The container is scaled to BADGE_SIZE * scale
+  // in content-coordinates, which after counter-scale becomes BADGE_SIZE screen pixels.
+  const counterScale = 1 / scale
+  // Size of the container in content-coordinates so it appears as BADGE_SIZE screen pixels
+  const containerSize = BADGE_SIZE * scale
+  const halfContainer = containerSize / 2
 
   return (
     <div
       ref={pointRef}
       style={{
         position: 'absolute',
-        left: badgeX,
-        top: badgeY,
+        left: `${displayX}%`,
+        top: `${displayY}%`,
         width: 0,
         height: 0,
-        cursor: isDragging ? 'grabbing' : 'grab',
-        zIndex: isDragging || isSelected ? 1000 : 100
+        zIndex: isDragging || isSelected ? 1000 : 100,
+        pointerEvents: 'auto'
       }}
       onMouseDown={handleMouseDown}
       onMouseEnter={() => {
@@ -157,106 +129,98 @@ function DraggablePoint({
         setIsHovered(false)
       }}
     >
-      {/* ── Pulsing Ring (selected point) ───────────────────────────── */}
-      {isSelected && (
+      {/* Counter-scaled wrapper: keeps badge at true pixel size */}
+      <div
+        style={{
+          position: 'absolute',
+          left: -halfContainer,
+          top: -halfContainer,
+          width: containerSize,
+          height: containerSize,
+          transform: `scale(${counterScale})`,
+          transformOrigin: 'center center',
+          pointerEvents: 'auto',
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+      >
+        {/* ── Point Badge ─────────────────────────────────────────────── */}
         <motion.div
           style={{
             position: 'absolute',
-            borderRadius: '50%',
-            border: `3px solid ${ringColor}`,
-            pointerEvents: 'none',
-            // Start at BADGE_SIZE centered on anchor
             width: BADGE_SIZE,
             height: BADGE_SIZE,
-            left: -HALF_BADGE,
-            top: -HALF_BADGE
-          }}
-          animate={{
-            width: [BADGE_SIZE, BADGE_SIZE, BADGE_SIZE + 24],
-            height: [BADGE_SIZE, BADGE_SIZE, BADGE_SIZE + 24],
-            left: [-HALF_BADGE, -HALF_BADGE, -(HALF_BADGE + 12)],
-            top: [-HALF_BADGE, -HALF_BADGE, -(HALF_BADGE + 12)],
-            opacity: [0, 0.9, 0]
-          }}
-          transition={{
-            duration: 1.8,
-            repeat: Infinity,
-            ease: 'easeOut'
-          }}
-        />
-      )}
-
-      {/* ── Point Badge ─────────────────────────────────────────────── */}
-      <motion.div
-        style={{
-          position: 'absolute',
-          width: BADGE_SIZE,
-          height: BADGE_SIZE,
-          left: -HALF_BADGE,
-          top: -HALF_BADGE,
-          borderRadius: '50%',
-          background: pointColor.bg,
-          color: pointColor.text,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '0.8rem',
-          fontWeight: 700,
-          boxShadow:
-            isDragging || isSelected
-              ? '0 0 0 3px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.4)'
-              : '0 2px 6px rgba(0,0,0,0.4)',
-          border: isSelected ? '2px solid #fff' : '2px solid rgba(255,255,255,0.3)',
-          userSelect: 'none',
-          cursor: isDragging ? 'grabbing' : 'grab'
-        }}
-        animate={isHovered && !isDragging ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-        transition={{
-          duration: 0.8,
-          repeat: isHovered && !isDragging ? Infinity : 0,
-          ease: 'easeInOut'
-        }}
-      >
-        {index + 1}
-      </motion.div>
-
-      {/* ── Tooltip on hover ────────────────────────────────────────── */}
-      {showTooltip && point.text && (
-        <Box
-          sx={{
-            position: 'absolute',
             left: 0,
-            top: HALF_BADGE + 4,
-            transform: 'translateX(-50%)',
-            display: 'inline-block',
-            maxWidth: 200,
-            px: 1.5,
-            py: 0.75,
-            bgcolor: 'rgba(0,0,0,0.85)',
-            color: '#fff',
-            borderRadius: 1,
+            top: 0,
+            borderRadius: '50%',
+            background: pointColor.bg,
+            color: pointColor.text,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             fontSize: '0.8rem',
-            lineHeight: 1.2,
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            fontWeight: 700,
+            boxShadow:
+              isDragging || isSelected
+                ? '0 0 0 3px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.4)'
+                : '0 2px 6px rgba(0,0,0,0.4)',
+            border: isSelected ? '2px solid #fff' : '2px solid rgba(255,255,255,0.3)',
+            userSelect: 'none',
+            cursor: isDragging ? 'grabbing' : 'grab'
+          }}
+          animate={
+            isSelected
+              ? { scale: [1, 1.2, 1] }
+              : isHovered && !isDragging
+                ? { scale: [1, 1.5, 1] }
+                : { scale: 1 }
+          }
+          transition={{
+            duration: isSelected ? 1.2 : 0.8,
+            repeat: isSelected || (isHovered && !isDragging) ? Infinity : 0,
+            ease: 'easeInOut'
           }}
         >
-          {point.text}
-        </Box>
-      )}
+          {index + 1}
+        </motion.div>
+
+        {/* ── Tooltip on hover ────────────────────────────────────────── */}
+        {showTooltip && point.text && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: HALF_BADGE,
+              top: BADGE_SIZE + 4,
+              transform: 'translateX(-50%)',
+              display: 'inline-block',
+              maxWidth: 200,
+              px: 1.5,
+              py: 0.75,
+              bgcolor: 'rgba(0,0,0,0.85)',
+              color: '#fff',
+              borderRadius: 1,
+              fontSize: '0.8rem',
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              zIndex: 9999
+            }}
+          >
+            {point.text}
+          </Box>
+        )}
+      </div>
     </div>
   )
 }
 
 /**
- * Points overlay rendered as a sibling of TransformComponent inside
- * TransformWrapper. This means badges are NOT subject to the content's
- * CSS transform — they render at true screen-pixel size and position.
+ * Points rendered INSIDE the transformed content (sibling of the img).
+ * Each badge is counter-scaled so it stays at a constant screen-pixel size.
  */
-function PointsOverlay({
+function PointsInside({
   points,
   selectedPointId,
   onSelectPoint,
@@ -269,30 +233,9 @@ function PointsOverlay({
   onPointDrag: (id: string, xPercent: number, yPercent: number) => void
   getPointColor: (index: number) => { bg: string; text: string }
 }): React.ReactElement | null {
-  // Subscribe to every transform change — causes re-render on zoom/pan
-  const transformData = useTransformComponent(({ instance }) => {
-    const content = instance.contentComponent
-    const { scale, positionX, positionY } = instance.transformState
+  const currentScale = useTransformComponent(({ instance }) => instance.transformState.scale)
 
-    let contentRenderedWidth = 0
-    let contentRenderedHeight = 0
-    if (content && scale > 0) {
-      try {
-        const rect = content.getBoundingClientRect()
-        contentRenderedWidth = rect.width
-        contentRenderedHeight = rect.height
-      } catch {
-        // content not in DOM yet
-      }
-    }
-
-    return { positionX, positionY, contentRenderedWidth, contentRenderedHeight }
-  })
-
-  // Don't render until we have valid dimensions
-  if (transformData.contentRenderedWidth === 0 || transformData.contentRenderedHeight === 0) {
-    return null
-  }
+  if (currentScale <= 0) return null
 
   return (
     <div
@@ -303,7 +246,8 @@ function PointsOverlay({
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        overflow: 'visible'
+        overflow: 'visible',
+        zIndex: 50
       }}
     >
       {points.map((point, pointIndex) => (
@@ -315,7 +259,7 @@ function PointsOverlay({
           getPointColor={getPointColor}
           onDragEnd={onPointDrag}
           onSelect={onSelectPoint}
-          transformState={transformData}
+          scale={currentScale}
         />
       ))}
     </div>
@@ -456,17 +400,17 @@ export function ImageViewer({
               }}
             />
           )}
+
+          {/* Points inside the transform, counter-scaled per badge */}
+          <PointsInside
+            points={points}
+            selectedPointId={selectedPointId}
+            onSelectPoint={onSelectPoint}
+            onPointDrag={onPointDrag}
+            getPointColor={getPointColor}
+          />
         </div>
       </TransformComponent>
-
-      {/* Points rendered OUTSIDE the transform, as a sibling */}
-      <PointsOverlay
-        points={points}
-        selectedPointId={selectedPointId}
-        onSelectPoint={onSelectPoint}
-        onPointDrag={onPointDrag}
-        getPointColor={getPointColor}
-      />
     </TransformWrapper>
   )
 }
