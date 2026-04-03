@@ -1,16 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { playSound } from "../helper";
 
 export default function HammerCursor() {
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [hit, setHit] = useState(false);
+    const hitRef = useRef<HTMLAudioElement|null>(null);
 
     useEffect(() => {
+        hitRef.current = new Audio('/assets/sounds/hit.ogg');
+
         const move = (e: MouseEvent) => {
             setPos({ x: e.clientX, y: e.clientY });
         };
 
         const down = () => {
             setHit(true);
+            playSound(hitRef.current, 0.2);
             setTimeout(() => setHit(false), 120);
         };
 
