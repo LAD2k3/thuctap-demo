@@ -1,12 +1,29 @@
 import { AnimatePresence, motion } from "framer-motion";
-import type { CardProps } from "../types/components";
-import CardBack from "./CardBack";
-import { isEmoji } from "../utils";
 import { Textfit } from "react-textfit";
+import type { CardProps } from "../types/components";
+import { isEmoji } from "../utils";
+import CardBack from "./CardBack";
+import { useCallback, useState } from "react";
+import clsx from "clsx";
 
 export default function Card({ card, onClick, disabled, size }: CardProps) {
   const { isFlipped, isMatched, image, keyword } = card;
   const showFront = isFlipped || isMatched;
+
+  // Track if we hit the floor and need to force breaks
+  const [needsBreak, setNeedsBreak] = useState(false);
+  const minFontSize = 12;
+
+  const handleTextReady = useCallback(
+    (finalFontSize: number) => {
+      // If the library shrunk it all the way to the min and it still
+      // might be too wide, enable hard breaking
+      if (finalFontSize < minFontSize && !needsBreak) {
+        setNeedsBreak(true);
+      }
+    },
+    [needsBreak],
+  );
 
   return (
     <motion.div
@@ -69,14 +86,24 @@ export default function Card({ card, onClick, disabled, size }: CardProps) {
               {/* Centered keyword with Auto-Scaling */}
               <div className="z-10 w-10/12 h-10/12">
                 <Textfit
-                  min={8} // Minimum font size
+                  // The KEY is crucial: if needsBreak changes,
+                  // Textfit restarts its calculation with the new CSS rules
+                  key={`${keyword}-${needsBreak}-${size}`}
+                  min={minFontSize - 0.05 * minFontSize} // Minimum font size
                   max={size * 0.25} // Maximum font size (e.g., 25% of card size)
                   mode="multi" // Use 'multi' for multiline support
                   forceSingleModeWidth={false}
-                  className="font-black text-white tracking-widest text-center leading-tight w-full h-full flex items-center justify-center"
+                  onReady={handleTextReady}
+                  className={clsx(
+                    "font-black text-white tracking-widest text-center leading-tight w-full h-full flex items-center justify-center",
+                    // Ensure the internal container behaves
+                    needsBreak ? "break-all hyphens-auto" : "wrap-break-word",
+                  )}
                   style={{
                     textShadow: "0 0 12px #a78bfa",
                   }}
+                  // Without this, the browser doesn't know which dictionary to use to break the words correctly
+                  lang="en"
                 >
                   {keyword}
                 </Textfit>
