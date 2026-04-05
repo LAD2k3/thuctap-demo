@@ -8,6 +8,7 @@ import { QuestionCard } from './QuestionCard'
 
 export interface QuestionsTabProps {
   questions: JumpingFrogQuestion[]
+  projectDir: string
   onAddQuestion: (initialImage?: string) => void
   onAddQuestionFromDrop: (filePath: string) => void
   onUpdateQuestion: (id: string, patch: Partial<JumpingFrogQuestion>) => void
@@ -19,6 +20,7 @@ export interface QuestionsTabProps {
 
 export function QuestionsTab({
   questions,
+  projectDir,
   onAddQuestion,
   onAddQuestionFromDrop,
   onUpdateQuestion,
@@ -80,6 +82,7 @@ export function QuestionsTab({
               key={q.id}
               question={q}
               index={idx}
+              projectDir={projectDir}
               autoFocus={idx === questions.length - 1}
               onUpdate={onUpdateQuestion}
               onDelete={onDeleteQuestion}

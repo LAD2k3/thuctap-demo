@@ -188,6 +188,7 @@ export default function JumpingFrogEditor({
       <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
         <QuestionsTab
           questions={questions}
+          projectDir={_projectDir}
           onAddQuestion={addQuestion}
           onAddQuestionFromDrop={addQuestionFromDrop}
           onUpdateQuestion={updateQuestion}

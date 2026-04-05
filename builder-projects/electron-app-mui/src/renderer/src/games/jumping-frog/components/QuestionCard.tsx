@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ImageIcon from '@mui/icons-material/Image'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import { Box, Button, IconButton, TextField, Tooltip, Typography } from '@mui/material'
 import React from 'react'
@@ -9,6 +10,7 @@ import { JumpingFrogAnswer, JumpingFrogQuestion } from '../../../types'
 export interface QuestionCardProps {
   question: JumpingFrogQuestion
   index: number
+  projectDir: string
   autoFocus: boolean
   onUpdate: (id: string, patch: Partial<JumpingFrogQuestion>) => void
   onDelete: (id: string) => void
@@ -20,6 +22,7 @@ export interface QuestionCardProps {
 export function QuestionCard({
   question,
   index,
+  projectDir,
   autoFocus,
   onUpdate,
   onDelete,
@@ -28,6 +31,14 @@ export function QuestionCard({
   onDeleteAnswer
 }: QuestionCardProps): React.ReactElement {
   const hasCorrectAnswer = question.answers.some((a) => a.isCorrect)
+
+  const handlePickImage = async (answerId: string) => {
+    const path = await window.electronAPI.pickImage()
+    if (path) {
+      const imported = await window.electronAPI.importImage(path, projectDir, answerId)
+      onUpdateAnswer(question.id, answerId, { imagePath: imported })
+    }
+  }
 
   return (
     <Box
@@ -125,6 +136,20 @@ export function QuestionCard({
                     }
                   }}
                 />
+
+                {/* Image picker */}
+                <Tooltip title={answer.imagePath ? 'Change image' : 'Add image'}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handlePickImage(answer.id)}
+                    sx={{
+                      color: answer.imagePath ? 'success.main' : 'text.secondary',
+                      flexShrink: 0
+                    }}
+                  >
+                    <ImageIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
 
                 <Tooltip title="Remove option">
                   <span>
