@@ -30,7 +30,14 @@ export default defineConfig(
       ...eslintPluginReactHooks.configs.recommended.rules,
       ...eslintPluginReactRefresh.configs.vite.rules,
       ...eslintPluginReactCompiler.configs.recommended.rules,
-      'prettier/prettier': ['error', { endOfLine: 'auto' }]
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+      '@typescript-eslint/no-unused-vars': [
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ]
     }
   },
   eslintConfigPrettier
