@@ -119,27 +119,6 @@ export default function JumpingFrogEditor({
     [data, questions, onChange]
   )
 
-  const addAnswer = useCallback(
-    (qid: string, initialImage?: string) => {
-      onChange({
-        ...data,
-        questions: questions.map((q) => {
-          if (q.id !== qid) return q
-          const ac = data._answerCounter + 1
-          const newAnswer: JumpingFrogAnswer = {
-            id: `${qid}-a-${ac}`,
-            text: resolved.prefillNames ? `Option ${ac}` : '',
-            imagePath: initialImage ?? null,
-            isCorrect: false
-          }
-          return { ...q, answers: [...q.answers, newAnswer] }
-        }),
-        _answerCounter: data._answerCounter + 1
-      })
-    },
-    [data, questions, resolved.prefillNames, onChange]
-  )
-
   const updateAnswer = useCallback(
     (qid: string, aid: string, patch: Partial<JumpingFrogAnswer>) => {
       onChange({
@@ -157,18 +136,6 @@ export default function JumpingFrogEditor({
 
           return { ...q, answers }
         })
-      })
-    },
-    [data, questions, onChange]
-  )
-
-  const deleteAnswer = useCallback(
-    (qid: string, aid: string) => {
-      onChange({
-        ...data,
-        questions: questions.map((q) =>
-          q.id !== qid ? q : { ...q, answers: q.answers.filter((a) => a.id !== aid) }
-        )
       })
     },
     [data, questions, onChange]
@@ -193,9 +160,7 @@ export default function JumpingFrogEditor({
           onAddQuestionFromDrop={addQuestionFromDrop}
           onUpdateQuestion={updateQuestion}
           onDeleteQuestion={deleteQuestion}
-          onAddAnswer={addAnswer}
           onUpdateAnswer={updateAnswer}
-          onDeleteAnswer={deleteAnswer}
         />
       </Box>
     </Box>

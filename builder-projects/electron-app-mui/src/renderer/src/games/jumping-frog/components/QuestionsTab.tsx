@@ -13,9 +13,7 @@ export interface QuestionsTabProps {
   onAddQuestionFromDrop: (filePath: string) => void
   onUpdateQuestion: (id: string, patch: Partial<JumpingFrogQuestion>) => void
   onDeleteQuestion: (id: string) => void
-  onAddAnswer: (qid: string, initialImage?: string) => void
   onUpdateAnswer: (qid: string, aid: string, patch: Partial<JumpingFrogAnswer>) => void
-  onDeleteAnswer: (qid: string, aid: string) => void
 }
 
 export function QuestionsTab({
@@ -25,27 +23,29 @@ export function QuestionsTab({
   onAddQuestionFromDrop,
   onUpdateQuestion,
   onDeleteQuestion,
-  onAddAnswer,
-  onUpdateAnswer,
-  onDeleteAnswer
+  onUpdateAnswer
 }: QuestionsTabProps): React.ReactElement {
   // Validation
   const noText = questions.filter((q) => !q.question.trim())
   const noCorrect = questions.filter((q) => !q.answers.some((a) => a.isCorrect))
   const emptyAnswers = questions.filter((q) => q.answers.some((a) => !a.text.trim()))
-  const tooFewAns = questions.filter((q) => q.answers.length < 2)
+  const notThreeAnswers = questions.filter((q) => q.answers.length !== 3)
   const hasIssues =
-    noText.length > 0 || noCorrect.length > 0 || emptyAnswers.length > 0 || tooFewAns.length > 0
+    noText.length > 0 ||
+    noCorrect.length > 0 ||
+    emptyAnswers.length > 0 ||
+    notThreeAnswers.length > 0
 
   return (
     <Box>
       <Collapse in={hasIssues}>
         <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
           {[
-            noText.length > 0 && `${noText.length} question(s) have no text`,
-            noCorrect.length > 0 && `${noCorrect.length} question(s) have no correct answer marked`,
-            emptyAnswers.length > 0 && `${emptyAnswers.length} question(s) have blank option text`,
-            tooFewAns.length > 0 && `${tooFewAns.length} question(s) need at least 2 options`
+            noText.length > 0 && `${noText.length} question(s) missing text`,
+            noCorrect.length > 0 && `${noCorrect.length} question(s) missing correct answer`,
+            emptyAnswers.length > 0 && `${emptyAnswers.length} question(s) have blank options`,
+            notThreeAnswers.length > 0 &&
+              `${notThreeAnswers.length} question(s) need exactly 3 options`
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -86,9 +86,7 @@ export function QuestionsTab({
               autoFocus={idx === questions.length - 1}
               onUpdate={onUpdateQuestion}
               onDelete={onDeleteQuestion}
-              onAddAnswer={onAddAnswer}
               onUpdateAnswer={onUpdateAnswer}
-              onDeleteAnswer={onDeleteAnswer}
             />
           ))}
         </Box>
