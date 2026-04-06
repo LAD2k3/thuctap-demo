@@ -48,6 +48,12 @@ export default function JumpingFrogEditor({
           text: resolved.prefillNames ? `Option ${ac + 2}` : '',
           imagePath: null,
           isCorrect: false
+        },
+        {
+          id: `${qid}-a-${ac + 3}`,
+          text: resolved.prefillNames ? `Option ${ac + 3}` : '',
+          imagePath: null,
+          isCorrect: false
         }
       ]
 
@@ -60,7 +66,7 @@ export default function JumpingFrogEditor({
       onChange({
         ...data,
         _questionCounter: qc,
-        _answerCounter: ac + 2,
+        _answerCounter: ac + 3,
         questions: [...questions, q]
       })
     },

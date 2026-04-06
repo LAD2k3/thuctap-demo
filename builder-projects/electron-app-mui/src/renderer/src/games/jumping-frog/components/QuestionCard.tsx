@@ -5,6 +5,7 @@ import { Box, IconButton, TextField, Tooltip, Typography } from '@mui/material'
 import React from 'react'
 import { FileDropTarget, ImagePicker } from '../../../components'
 import { JumpingFrogAnswer, JumpingFrogQuestion } from '../../../types'
+import { getExcelName } from '../../../utils/stringUtils'
 
 export interface QuestionCardProps {
   question: JumpingFrogQuestion
@@ -138,7 +139,7 @@ export function QuestionCard({
                   desiredNamePrefix={answer.id}
                   value={answer.imagePath}
                   onChange={(p) => onUpdateAnswer(question.id, answer.id, { imagePath: p })}
-                  label={`Option ${String.fromCharCode(64 + aIdx + 1)} image`}
+                  label={`Option ${getExcelName(aIdx)} image`}
                   size={56}
                 />
 
@@ -148,7 +149,7 @@ export function QuestionCard({
                   fullWidth
                   value={answer.text}
                   onChange={(e) => onUpdateAnswer(question.id, answer.id, { text: e.target.value })}
-                  placeholder={`Option ${String.fromCharCode(64 + aIdx + 1)}…`}
+                  placeholder={`Option ${getExcelName(aIdx)}…`}
                   error={!answer.text.trim()}
                   sx={{
                     '& .MuiOutlinedInput-root': {

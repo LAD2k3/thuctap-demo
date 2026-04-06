@@ -5,6 +5,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import { Box, Button, IconButton, TextField, Tooltip, Typography } from '@mui/material'
+import { getExcelName } from '@renderer/utils'
 import React from 'react'
 import { QuizAnswer, QuizQuestion } from '../../../types'
 
@@ -64,7 +65,7 @@ export function AnswerList({
               fullWidth
               value={answer.text}
               onChange={(e) => onUpdateAnswer(question.id, answer.id, { text: e.target.value })}
-              placeholder={`Answer ${String.fromCharCode(64 + aIdx + 1)}…`}
+              placeholder={`Answer ${getExcelName(aIdx)}…`}
               error={!answer.text.trim()}
               sx={{
                 '& .MuiOutlinedInput-root': {
