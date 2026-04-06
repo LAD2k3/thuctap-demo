@@ -2,11 +2,11 @@
 export interface Item {
   id: string;
   name: string;
-  imagePath: string;
+  imagePath: string | null;
   groupId: string;
 }
 export interface Group {
   id: string;
   name: string;
-  imagePath: string;
+  imagePath: string | null;
 }

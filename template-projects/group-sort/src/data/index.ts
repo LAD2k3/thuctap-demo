@@ -1,7 +1,7 @@
 import type { Group, Item } from "../types/objects";
 
 // --- Dữ liệu mẫu ---
-export const MY_APP_DATA: { groups: Group[]; items: Item[] } =
+export const _APP_DATA: { groups: Group[]; items: Item[] } =
   import.meta.env.PROD &&
   (
     window as Window &
@@ -106,3 +106,18 @@ export const MY_APP_DATA: { groups: Group[]; items: Item[] } =
           },
         ],
       };
+
+function normalizeAppData(data: { groups: Group[]; items: Item[] }) {
+  return {
+    groups: data.groups.map((g) => ({
+      ...g,
+      imagePath: g.imagePath && g.imagePath.trim() !== "" ? g.imagePath : null,
+    })),
+    items: data.items.map((i) => ({
+      ...i,
+      imagePath: i.imagePath && i.imagePath.trim() !== "" ? i.imagePath : null,
+    })),
+  };
+}
+
+export const MY_APP_DATA = normalizeAppData(_APP_DATA);

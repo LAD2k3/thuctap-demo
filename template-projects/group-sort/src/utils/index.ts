@@ -5,7 +5,11 @@ import type { Group, Item } from "../types/objects";
  * A single emoji is typically 1-2 grapheme clusters.
  * If it contains path characters (/ . \) or is too long, treat as path.
  */
-export const isEmoji = (str: string): boolean => {
+export const isEmoji = (str: string | null): boolean => {
+  if (str == null) {
+    return false;
+  }
+
   // If it looks like a path, it's not an emoji
   if (str.includes("/") || str.includes(".") || str.includes("\\")) {
     return false;

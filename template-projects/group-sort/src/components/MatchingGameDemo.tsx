@@ -343,7 +343,7 @@ const MatchingGameDemo: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border-2 border-purple-200 p-4 z-50 min-w-[280px]"
+                    className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border-2 border-purple-200 p-4 z-50 min-w-70"
                     onMouseEnter={() => {
                       if (settingsTimeoutRef.current) {
                         clearTimeout(settingsTimeoutRef.current);

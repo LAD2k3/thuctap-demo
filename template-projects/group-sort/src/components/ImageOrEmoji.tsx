@@ -1,7 +1,7 @@
 import { isEmoji } from "../utils";
 
 interface ImageOrEmojiProps {
-  imagePath: string;
+  imagePath: string | null;
   alt: string;
   size?: "large" | "medium" | "small" | "tiny";
 }
@@ -11,6 +11,9 @@ export const ImageOrEmoji: React.FC<ImageOrEmojiProps> = ({
   alt,
   size = "large",
 }) => {
+  if (imagePath == null) {
+    return <span className={`pointer-events-none select-none`}>{alt}</span>;
+  }
   if (isEmoji(imagePath)) {
     const sizeClass =
       size === "large"
