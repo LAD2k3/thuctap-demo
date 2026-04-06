@@ -103,7 +103,9 @@ export default function Card({ card, onClick, disabled, size }: CardProps) {
               >
                 {/* Background image */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                  {isEmoji(image) ? (
+                  {image == null ? (
+                    <span className="break-all hyphens-auto">{keyword}</span>
+                  ) : isEmoji(image) ? (
                     <span style={{ fontSize: size * 0.4, lineHeight: 1 }}>
                       {image}
                     </span>
@@ -144,7 +146,9 @@ export default function Card({ card, onClick, disabled, size }: CardProps) {
             ) : (
               // Flipped, not matched yet
               <div className="flex flex-col items-center justify-center gap-1 px-2 w-full h-full">
-                {isEmoji(image) ? (
+                {image == null ? (
+                  <span className="break-all hyphens-auto">{keyword}</span>
+                ) : isEmoji(image) ? (
                   <span
                     style={{
                       fontSize: size * 0.6,

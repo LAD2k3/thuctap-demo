@@ -4,7 +4,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ItemData {
   id: string;
-  image: string; // URL or emoji
+  image: string | null; // URL or emoji
   keyword: string;
   minPairs?: number; // min pairs for this item specifically
 }
@@ -18,7 +18,7 @@ export interface GameConfig {
 export interface CardState {
   uid: string; // unique id per card instance
   itemId: string;
-  image: string;
+  image: string | null;
   keyword: string;
   isFlipped: boolean;
   isMatched: boolean;

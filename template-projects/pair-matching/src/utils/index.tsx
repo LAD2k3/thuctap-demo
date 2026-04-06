@@ -121,7 +121,7 @@ export function buildDeck(config: GameConfig): CardState[] {
   return cards;
 }
 
-export function isEmoji(str: string) {
+export function isEmoji(str: string | null) {
   if (!str) return false;
 
   const s = str.trim();

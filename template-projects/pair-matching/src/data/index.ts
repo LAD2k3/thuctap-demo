@@ -151,5 +151,15 @@ const getData = (): GameConfig => {
   }
 };
 
+function normalizeGameConfig(config: GameConfig): GameConfig {
+  return {
+    ...config,
+    items: config.items.map((item) => ({
+      ...item,
+      image: item.image && item.image.trim() !== "" ? item.image : null,
+    })),
+  };
+}
+
 // --- Sample data ---
-export const MY_APP_DATA: GameConfig = getData();
+export const MY_APP_DATA: GameConfig = normalizeGameConfig(getData());
