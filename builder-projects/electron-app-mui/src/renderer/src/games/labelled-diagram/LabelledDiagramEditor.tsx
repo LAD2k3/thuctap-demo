@@ -63,7 +63,7 @@ const hoverBadgePulse = keyframes`
     transform: translate(-50%, -50%) scale(1);
   }
   50% {
-    transform: translate(-50%, -50%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.2);
   }
   100% {
     transform: translate(-50%, -50%) scale(1);
@@ -76,7 +76,7 @@ const SelectedBadgeOutline = styled(Box)(() => ({
   height: 44,
   borderRadius: '50%',
   border: '2px solid white',
-  animation: `${pulse} 2s infinite`,
+  animation: `${pulse} 1.5s infinite`,
   pointerEvents: 'none',
   zIndex: 9
 }))
