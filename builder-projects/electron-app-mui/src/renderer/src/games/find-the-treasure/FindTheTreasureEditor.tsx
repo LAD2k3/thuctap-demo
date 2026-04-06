@@ -53,6 +53,7 @@ export default function FindTheTreasureEditor({
 
     const stage: FindTheTreasureStage = {
       id: sid,
+      name: `Stage ${sc}`,
       stageName: resolved.prefillNames ? `Location ${sc}` : '',
       stageText: resolved.prefillNames ? `Story ${sc}` : '',
       question: resolved.prefillNames ? `Prompt ${sc}` : '',

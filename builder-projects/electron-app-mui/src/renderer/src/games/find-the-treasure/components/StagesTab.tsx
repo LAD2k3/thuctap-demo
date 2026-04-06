@@ -32,27 +32,20 @@ export function StagesTab({
   onSelectStage
 }: StagesTabProps): React.ReactElement {
   // Validation
-  const noName = stages.filter((s) => !s.stageName.trim())
-  const noStory = stages.filter((s) => !s.stageText.trim())
   const noPrompt = stages.filter((s) => !s.question.trim())
   const noCorrect = stages.filter((s) => !s.answers.some((a) => a.isCorrect))
   const emptyOptions = stages.filter((s) => s.answers.some((a) => !a.text.trim()))
   const tooFewOptions = stages.filter((s) => s.answers.length < 2)
-  const noExplanation = stages.filter((s) => !s.stageDescription.trim())
   const hasIssues =
-    noName.length > 0 ||
-    noStory.length > 0 ||
     noPrompt.length > 0 ||
     noCorrect.length > 0 ||
     emptyOptions.length > 0 ||
-    tooFewOptions.length > 0 ||
-    noExplanation.length > 0
+    tooFewOptions.length > 0
 
   // Determine which stage to show
   const selectedStage = selectedStageId
     ? (stages.find((s) => s.id === selectedStageId) ?? null)
     : null
-  const selectedStageIndex = selectedStage ? stages.indexOf(selectedStage) : -1
 
   // Auto-select first stage if none selected and stages exist
   React.useEffect(() => {
@@ -66,13 +59,10 @@ export function StagesTab({
       <Collapse in={hasIssues}>
         <Alert severity="warning" sx={{ mb: 2, fontSize: '0.8rem' }}>
           {[
-            noName.length > 0 && `${noName.length} stage(s) missing a location`,
-            noStory.length > 0 && `${noStory.length} stage(s) missing a story`,
             noPrompt.length > 0 && `${noPrompt.length} stage(s) missing a prompt`,
             noCorrect.length > 0 && `${noCorrect.length} stage(s) have no correct answer marked`,
             emptyOptions.length > 0 && `${emptyOptions.length} stage(s) have blank option text`,
-            tooFewOptions.length > 0 && `${tooFewOptions.length} stage(s) need at least 2 options`,
-            noExplanation.length > 0 && `${noExplanation.length} stage(s) missing an explanation`
+            tooFewOptions.length > 0 && `${tooFewOptions.length} stage(s) need at least 2 options`
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -106,7 +96,6 @@ export function StagesTab({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <StageCard
             stage={selectedStage}
-            stageIndex={selectedStageIndex}
             autoFocus={false}
             onUpdateStage={onUpdateStage}
             onDeleteStage={onDeleteStage}

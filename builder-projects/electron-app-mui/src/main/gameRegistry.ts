@@ -215,15 +215,16 @@ export const GAME_DATA_TRANSFORMS: Record<string, DataTransform> = {
     const stages = (data.stages ?? []).map((s) => {
       const correctIndex = s.answers.findIndex((a) => a.isCorrect)
       const options = s.answers.map((a) => a.text)
+      const { name: _name, ...stageWithoutName } = s
       return {
-        id: s.id,
-        location: s.stageName,
-        story: s.stageText,
-        prompt: s.question,
+        id: stageWithoutName.id,
+        location: stageWithoutName.stageName,
+        story: stageWithoutName.stageText,
+        prompt: stageWithoutName.question,
         options,
         correctAnswer: correctIndex >= 0 ? correctIndex : 0,
-        explanation: s.stageDescription,
-        points: s.stageValue
+        explanation: stageWithoutName.stageDescription,
+        points: stageWithoutName.stageValue
       }
     })
     return omitInternalKeys(stages)

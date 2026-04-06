@@ -143,6 +143,7 @@ export interface FindTheTreasureAnswer {
 }
 export interface FindTheTreasureStage {
   id: string
+  name: string
   stageName: string
   stageText: string
   question: string

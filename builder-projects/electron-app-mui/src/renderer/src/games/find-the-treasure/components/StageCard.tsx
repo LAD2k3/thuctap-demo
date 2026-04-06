@@ -2,13 +2,14 @@ import AddIcon from '@mui/icons-material/Add'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
+import TransformIcon from '@mui/icons-material/Transform'
 import { Box, Button, IconButton, TextField, Tooltip, Typography } from '@mui/material'
+import { getExcelName } from '@renderer/utils'
 import React from 'react'
 import { FindTheTreasureAnswer, FindTheTreasureStage } from '../../../types'
 
 export interface StageCardProps {
   stage: FindTheTreasureStage
-  stageIndex: number
   autoFocus: boolean
   onUpdateStage: (id: string, patch: Partial<FindTheTreasureStage>) => void
   onDeleteStage: (id: string) => void
@@ -23,7 +24,6 @@ export interface StageCardProps {
  */
 export function StageCard({
   stage,
-  stageIndex,
   autoFocus,
   onUpdateStage,
   onDeleteStage,
@@ -51,15 +51,53 @@ export function StageCard({
           px: 2,
           py: 1.5,
           borderBottom: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(255,255,255,0.03)'
+          background: 'rgba(255,255,255,0.03)',
+          gap: 2
         }}
       >
-        <Typography
-          variant="subtitle2"
-          sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: 0.5 }}
-        >
-          {stage.stageName || `Stage ${stageIndex + 1}`}
-        </Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            size="small"
+            value={stage.name}
+            onChange={(e) => onUpdateStage(stage.id, { name: e.target.value })}
+            placeholder="Stage name (for editor)"
+            sx={{
+              flex: 1,
+              '& .MuiInputBase-root': {
+                background: 'transparent',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                letterSpacing: '0.5px',
+                color: 'text.secondary',
+                padding: '2px 8px',
+                minHeight: '28px'
+              },
+              '& .MuiOutlinedInput-notchedOutline': {
+                border: 'none'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderColor: 'rgba(255,255,255,0.12)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: '1px solid rgba(99,132,255,0.4)'
+              }
+            }}
+          />
+          <Tooltip title="Set name to location value">
+            <IconButton
+              size="small"
+              onClick={() => onUpdateStage(stage.id, { name: stage.stageName || stage.name })}
+              sx={{
+                color: 'text.secondary',
+                opacity: 0.5,
+                '&:hover': { opacity: 1, color: 'primary.main' }
+              }}
+            >
+              <TransformIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
         <Tooltip title="Delete stage">
           <IconButton
             size="small"
@@ -81,8 +119,6 @@ export function StageCard({
           value={stage.stageName}
           onChange={(e) => onUpdateStage(stage.id, { stageName: e.target.value })}
           placeholder="e.g. Coral Island"
-          error={!stage.stageName.trim()}
-          helperText={!stage.stageName.trim() ? 'Required' : ''}
           autoFocus={autoFocus}
         />
 
@@ -96,8 +132,6 @@ export function StageCard({
           value={stage.stageText}
           onChange={(e) => onUpdateStage(stage.id, { stageText: e.target.value })}
           placeholder="A short backstory paragraph for this location..."
-          error={!stage.stageText.trim()}
-          helperText={!stage.stageText.trim() ? 'Required' : ''}
         />
 
         {/* Prompt */}
@@ -105,11 +139,12 @@ export function StageCard({
           label="Prompt"
           size="small"
           fullWidth
+          required
           value={stage.question}
-          onChange={(e) => onUpdateStage(stage.id, { question: e.target.value })}
-          placeholder="The question for this stage..."
           error={!stage.question.trim()}
           helperText={!stage.question.trim() ? 'Required' : ''}
+          onChange={(e) => onUpdateStage(stage.id, { question: e.target.value })}
+          placeholder="The question for this stage..."
         />
 
         {/* Options (Answers) */}
@@ -143,16 +178,18 @@ export function StageCard({
                 <TextField
                   size="small"
                   fullWidth
+                  required
                   value={answer.text}
-                  onChange={(e) => onUpdateAnswer(stage.id, answer.id, { text: e.target.value })}
-                  placeholder={`Option ${String.fromCharCode(64 + aIdx + 1)}…`}
                   error={!answer.text.trim()}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderColor: isCorrect ? 'success.main' : undefined,
-                      '& fieldset': { borderColor: isCorrect ? 'rgba(52,211,153,0.4)' : undefined }
-                    }
-                  }}
+                  helperText={!answer.text.trim() ? 'Required' : ''}
+                  onChange={(e) => onUpdateAnswer(stage.id, answer.id, { text: e.target.value })}
+                  placeholder={`Option ${getExcelName(aIdx)}…`}
+                  // sx={{
+                  //   '& .MuiOutlinedInput-root': {
+                  //     borderColor: isCorrect ? 'success.main' : undefined,
+                  //     '& fieldset': { borderColor: isCorrect ? 'rgba(52,211,153,0.4)' : undefined }
+                  //   }
+                  // }}
                 />
 
                 <Tooltip title="Remove option">
@@ -202,8 +239,6 @@ export function StageCard({
           value={stage.stageDescription}
           onChange={(e) => onUpdateStage(stage.id, { stageDescription: e.target.value })}
           placeholder="Explanation shown after the player answers..."
-          error={!stage.stageDescription.trim()}
-          helperText={!stage.stageDescription.trim() ? 'Required' : ''}
         />
 
         {/* Points */}

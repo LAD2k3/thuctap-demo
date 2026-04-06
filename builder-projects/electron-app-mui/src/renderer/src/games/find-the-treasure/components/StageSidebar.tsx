@@ -41,10 +41,7 @@ export function StageSidebar({
   const stagesWithIssues = stages.filter((s) => {
     const hasCorrectAnswer = s.answers.some((a) => a.isCorrect)
     return (
-      !s.stageName.trim() ||
-      !s.stageText.trim() ||
       !s.question.trim() ||
-      !s.stageDescription.trim() ||
       !hasCorrectAnswer ||
       s.answers.some((a) => !a.text.trim()) ||
       s.answers.length < 2
@@ -185,10 +182,7 @@ export function StageSidebar({
           stages.map((s, idx) => {
             const hasCorrectAnswer = s.answers.some((a) => a.isCorrect)
             const hasIssue =
-              !s.stageName.trim() ||
-              !s.stageText.trim() ||
               !s.question.trim() ||
-              !s.stageDescription.trim() ||
               !hasCorrectAnswer ||
               s.answers.some((a) => !a.text.trim()) ||
               s.answers.length < 2
@@ -244,7 +238,7 @@ export function StageSidebar({
                   }}
                 >
                   <MarqueeText
-                    text={s.stageName || `Stage ${idx + 1}`}
+                    text={s.name || `Stage ${idx + 1}`}
                     isActive={isActive}
                     isHovered={isHovered} // ← Pass hovered state
                   />
