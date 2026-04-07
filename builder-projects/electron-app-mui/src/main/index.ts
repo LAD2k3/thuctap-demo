@@ -4,6 +4,7 @@ import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-insta
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import { pathToFileURL } from 'url'
 import type { AnyAppData, FolderStatus, GameTemplate, GlobalSettings, ProjectFile } from '../shared'
 import { EXPORT_ASSETS_DIR, PROJECT_ASSETS_DIR } from '../shared'
 import { prepareAppDataForTemplate } from './gameRegistry'
@@ -223,7 +224,7 @@ function normalizeAssetPaths(obj: unknown, projectDir: string): unknown {
     if (rel) {
       // rel is the filename (extracted from old or new format), prepend PROJECT_ASSETS_DIR
       const absPath = path.join(projectDir, PROJECT_ASSETS_DIR, rel)
-      result[key] = `file://${absPath.split(path.sep).join('/')}`
+      result[key] = pathToFileURL(absPath).href
       continue
     }
 

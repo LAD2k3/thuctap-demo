@@ -1,5 +1,5 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import { Box, Paper, TextField, Typography, IconButton } from '@mui/material'
+import { Box, IconButton, Paper, TextField, Typography } from '@mui/material'
 import React from 'react'
 import { LabelledDiagramPoint } from '../../../types'
 import { getBadgeColor } from '../styles'

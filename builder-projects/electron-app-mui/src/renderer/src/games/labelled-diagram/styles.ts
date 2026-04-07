@@ -1,4 +1,4 @@
-import { keyframes, styled, Box } from '@mui/material'
+import { Box, keyframes, styled } from '@mui/material'
 
 export const BADGE_COLORS = [
   '#f44336', // Red

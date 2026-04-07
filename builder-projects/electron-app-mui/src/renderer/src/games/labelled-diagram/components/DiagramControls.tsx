@@ -1,7 +1,7 @@
+import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
-import RestartAltIcon from '@mui/icons-material/RestartAlt'
-import { Box, Tooltip, IconButton } from '@mui/material'
+import { Box, IconButton, Tooltip } from '@mui/material'
 import React from 'react'
 
 interface DiagramControlsProps {

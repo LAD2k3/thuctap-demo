@@ -5,9 +5,9 @@
 
 import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { useSettings } from '@renderer/hooks/useSettings'
-import { useCallback } from 'react'
 import { WordSearchAppData, WordSearchItem } from '@renderer/types'
 import { toBb26 } from '@renderer/utils'
+import { useCallback } from 'react'
 
 interface UseWordSearchCrudReturn {
   items: WordSearchItem[]

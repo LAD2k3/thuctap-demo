@@ -5,12 +5,12 @@
 
 import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { useSettings } from '@renderer/hooks/useSettings'
-import { useCallback, useState } from 'react'
 import {
   FindTheTreasureAnswer,
   FindTheTreasureAppData,
   FindTheTreasureStage
 } from '@renderer/types'
+import { useCallback, useState } from 'react'
 
 interface UseFindTheTreasureCrudReturn {
   stages: FindTheTreasureStage[]

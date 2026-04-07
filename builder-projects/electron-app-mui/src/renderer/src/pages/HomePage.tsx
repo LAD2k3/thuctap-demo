@@ -1,9 +1,9 @@
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports'
 import { Box, Divider, Typography } from '@mui/material'
 import { useAppDocumentTitle } from '@renderer/hooks/useAppDocumentTitle'
-import { useBoolean } from 'usehooks-ts'
 import { JSX, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useBoolean } from 'usehooks-ts'
 import {
   HasProjectDialog,
   NonEmptyFolderDialog,

@@ -3,9 +3,9 @@ import { useProjectHistory } from '@renderer/context/useProjectHistory'
 import { useAppDocumentTitle } from '@renderer/hooks/useAppDocumentTitle'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { useSettingsStore } from '@renderer/stores/settingsStore'
-import { useBoolean, useInterval, useUnmount } from 'usehooks-ts'
 import { JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useBoolean, useInterval, useUnmount } from 'usehooks-ts'
 import { MoreActionsMenu } from '../components/project/MoreActionsMenu'
 import {
   BackConfirmDialog,

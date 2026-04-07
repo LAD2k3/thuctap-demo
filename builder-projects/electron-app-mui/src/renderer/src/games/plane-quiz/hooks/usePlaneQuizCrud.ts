@@ -5,9 +5,9 @@
 
 import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { useSettings } from '@renderer/hooks/useSettings'
+import { QuizAnswer, QuizAppData, QuizQuestion } from '@renderer/types'
 import { toBb26 } from '@renderer/utils'
 import { useCallback } from 'react'
-import { QuizAnswer, QuizAppData, QuizQuestion } from '@renderer/types'
 
 interface UsePlaneQuizCrudReturn {
   questions: QuizQuestion[]

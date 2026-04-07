@@ -5,8 +5,8 @@
 
 import { useEntityCreateShortcut } from '@renderer/hooks/useEntityCreateShortcut'
 import { useSettings } from '@renderer/hooks/useSettings'
-import { useCallback } from 'react'
 import { WhackAMoleAppData, WhackAMoleQuestion } from '@renderer/types'
+import { useCallback } from 'react'
 
 interface UseWhackAMoleCrudReturn {
   questions: WhackAMoleQuestion[]
