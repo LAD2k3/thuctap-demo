@@ -66,8 +66,9 @@ ok "Shared libraries built successfully"
 echo ""
 
 # Build each game template
-built=0
-failed=0
+success_list=()
+warning_list=()
+failed_list=()
 
 for game_id in "${GAMES[@]}"; do
   # If a filter was supplied, skip non-matching games
@@ -77,47 +78,119 @@ for game_id in "${GAMES[@]}"; do
 
   info "Building '$game_id'"
 
-  # Build using yarn workspace
-  if ! yarn "build:$game_id"; then
-    err "Build failed for $game_id"
-    (( failed++ )) || true
-    warn "Build failed for $game_id — continuing"
-    continue
-  fi
+  build_success=false
 
-  # Copy dist -> builder templates/<game_id>/game/
-  target_dir="$BUILDER_TEMPLATES/$game_id/game"
-  template_dir="$BUILDER_TEMPLATES/$game_id"
-  abs_project="$TEMPLATE_PROJECTS/$game_id"
+  # Build using yarn workspace — capture output, print after
+  build_output=""
+  set +e
+  build_output=$(yarn workspace "$game_id" run build 2>&1)
+  build_rc=$?
+  set -e
+  echo "$build_output"
 
-  info "Copying dist -> $target_dir"
-  mkdir -p "$target_dir"
-  rm -rv "$target_dir/" 2>/dev/null || true
-  cp -rv "$abs_project/dist/." "$target_dir/"
+  if [[ $build_rc -eq 0 ]]; then
+    # Primary build succeeded
+    success_list+=("$game_id")
+    build_success=true
+  else
+    # Build failed, try fallback: _build then vite build
+    warn "Primary build failed for $game_id, attempting fallback..."
 
-  # Copy meta.json if it exists in source and not in destination
-  if [[ -f "$abs_project/meta.json" && ! -f "$template_dir/meta.json" ]]; then
-    cp -v "$abs_project/meta.json" "$template_dir/"
-  fi
+    fallback_ok=false
 
-  # Copy thumbnail.* if it exists in source and not in destination
-  for thumb in "$abs_project"/thumbnail.*; do
-    if [[ -f "$thumb" ]]; then
-      thumb_basename="$(basename "$thumb")"
-      if [[ ! -f "$template_dir/$thumb_basename" ]]; then
-        cp -v "$thumb" "$template_dir/"
-      fi
+    # Try _build
+    set +e
+    fb_output=$(yarn workspace "$game_id" run _build 2>&1)
+    fb_rc=$?
+    set -e
+    echo "$fb_output"
+    if [[ $fb_rc -eq 0 ]]; then
+      fallback_ok=true
     fi
-  done
 
-  ok "Done: $game_id"
-  (( built++ )) || true
+    # Try vite build
+    set +e
+    vb_output=$(yarn workspace "$game_id" run vite build 2>&1)
+    vb_rc=$?
+    set -e
+    echo "$vb_output"
+    if [[ $vb_rc -eq 0 ]]; then
+      fallback_ok=true
+    fi
+
+    if [[ "$fallback_ok" == true ]]; then
+      warning_list+=("$game_id")
+      build_success=true
+    else
+      failed_list+=("$game_id")
+    fi
+  fi
+
+  if [[ "$build_success" == true ]]; then
+    # Copy dist -> builder templates/<game_id>/game/
+    target_dir="$BUILDER_TEMPLATES/$game_id/game"
+    template_dir="$BUILDER_TEMPLATES/$game_id"
+    abs_project="$TEMPLATE_PROJECTS/$game_id"
+
+    info "Copying dist -> $target_dir"
+    mkdir -p "$target_dir"
+    rm -rv "$target_dir/" 2>/dev/null || true
+    cp -rv "$abs_project/dist/." "$target_dir/"
+
+    # Copy meta.json if it exists in source and not in destination
+    if [[ -f "$abs_project/meta.json" && ! -f "$template_dir/meta.json" ]]; then
+      cp -v "$abs_project/meta.json" "$template_dir/"
+    fi
+
+    # Copy thumbnail.* if it exists in source and not in destination
+    for thumb in "$abs_project"/thumbnail.*; do
+      if [[ -f "$thumb" ]]; then
+        thumb_basename="$(basename "$thumb")"
+        if [[ ! -f "$template_dir/$thumb_basename" ]]; then
+          cp -v "$thumb" "$template_dir/"
+        fi
+      fi
+    done
+
+    ok "Done: $game_id"
+  fi
 done
 
 echo ""
-if [[ $failed -gt 0 ]]; then
-  err "Completed with errors: $built built, $failed failed."
+echo "=========================================="
+echo "          BUILD SUMMARY"
+echo "=========================================="
+
+if [[ ${#success_list[@]} -gt 0 ]]; then
+  echo ""
+  ok "BUILT SUCCESSFULLY (${#success_list[@]}):"
+  for item in "${success_list[@]}"; do
+    echo "  ✓ $item"
+  done
+fi
+
+if [[ ${#warning_list[@]} -gt 0 ]]; then
+  echo ""
+  warn "BUILT VIA FALLBACK (${#warning_list[@]}):"
+  for item in "${warning_list[@]}"; do
+    echo "  ⚠ $item"
+  done
+fi
+
+if [[ ${#failed_list[@]} -gt 0 ]]; then
+  echo ""
+  err "FAILED (${#failed_list[@]}):"
+  for item in "${failed_list[@]}"; do
+    echo "  ✗ $item"
+  done
+fi
+
+echo ""
+echo "=========================================="
+total=$(( ${#success_list[@]} + ${#warning_list[@]} + ${#failed_list[@]} ))
+echo "Total: $total | Built: ${#success_list[@]} | Fallback: ${#warning_list[@]} | Failed: ${#failed_list[@]}"
+echo "=========================================="
+
+if [[ ${#failed_list[@]} -gt 0 ]]; then
   exit 1
-else
-  ok "All done: $built game(s) built and copied to builder templates."
 fi
