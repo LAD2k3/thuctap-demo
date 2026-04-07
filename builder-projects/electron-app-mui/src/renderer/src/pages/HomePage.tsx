@@ -1,5 +1,6 @@
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports'
 import { Box, Divider, Typography } from '@mui/material'
+import { useAppDocumentTitle } from '@renderer/hooks/useAppDocumentTitle'
 import { JSX, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -8,8 +9,8 @@ import {
   RecentProjectsSection,
   TemplateGrid
 } from '../components/home/HomeComponents'
-import { useSettingsStore } from '../stores/settingsStore'
 import { useTemplateManager } from '../hooks/useTemplates'
+import { useSettingsStore } from '../stores/settingsStore'
 import { GameTemplate, RecentProject } from '../types'
 
 // Constant empty array to prevent infinite re-renders in Zustand selector
@@ -26,6 +27,7 @@ export default function HomePage(): JSX.Element {
   const manager = useTemplateManager()
   const [folderDlg, setFolderDlg] = useState<FolderDialogState>(null)
   const [showRecent, setShowRecent] = useState(false)
+  useAppDocumentTitle('Home Page')
 
   // Use Zustand store for recent projects
   // Note: Using ?? with constant to avoid creating new arrays on each call (prevents infinite loops)

@@ -1,9 +1,11 @@
 import { Box, Button, Typography } from '@mui/material'
 import { useProjectHistory } from '@renderer/context/useProjectHistory'
+import { useAppDocumentTitle } from '@renderer/hooks/useAppDocumentTitle'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { useSettingsStore } from '@renderer/stores/settingsStore'
-import { JSX, useCallback, useEffect, useRef, useState } from 'react'
+import { JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { MoreActionsMenu } from '../components/project/MoreActionsMenu'
 import {
   BackConfirmDialog,
   ExportMenu,
@@ -11,7 +13,6 @@ import {
   RenameDialog,
   SaveAsConfirmDialog
 } from '../components/project/ProjectDialogs'
-import { MoreActionsMenu } from '../components/project/MoreActionsMenu'
 import { ProjectToolbar } from '../components/project/ProjectToolbar'
 import SettingsPanel from '../components/SettingsPanel'
 import { ProjectHistoryProvider } from '../context/ProjectHistoryProvider'
@@ -71,6 +72,18 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
   // Snackbar hook
   const { message: snackMsg, severity: snackSeverity, showSnack, hideSnack } = useSnackbar()
 
+  // Update window title whenever meta or appData changes
+  const documentTitle = useMemo(() => {
+    if (!meta || !templateId) return 'Loading project'
+    const template = manager.getTemplate(templateId)
+    const tName = template?.name ?? templateId
+    const title = buildProjectTitle(tName, meta.name, meta.filePath)
+    return title
+    // document.title = title
+    // window.electronAPI.setTitle(title)
+  }, [meta, templateId, manager])
+  useAppDocumentTitle(documentTitle)
+
   // Wrapped undo/redo that marks document as dirty
   const handleUndo = useCallback(() => {
     historyUndo()
@@ -101,16 +114,6 @@ function ProjectPageInner({ templateId, locationState }: ProjectPageInnerProps):
       return { ...prev, settings: projectSettings }
     })
   }
-
-  // Update window title whenever meta or appData changes
-  useEffect(() => {
-    if (!meta || !templateId) return
-    const template = manager.getTemplate(templateId)
-    const tName = template?.name ?? templateId
-    const title = buildProjectTitle(tName, meta.name, meta.filePath)
-    document.title = title
-    window.electronAPI.setTitle(title)
-  }, [meta, templateId, manager])
 
   // UI state
   const [exportAnchor, setExportAnchor] = useState<null | HTMLElement>(null)
