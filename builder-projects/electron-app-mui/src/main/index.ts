@@ -2,8 +2,8 @@ import archiver from 'archiver'
 import { app, BrowserWindow, dialog, net, protocol, shell } from 'electron'
 import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer'
 import * as fs from 'fs'
-import * as os from 'os'
 import * as path from 'path'
+import tmp from 'tmp'
 import { pathToFileURL } from 'url'
 import type { AnyAppData, FolderStatus, GameTemplate, GlobalSettings, ProjectFile } from '../shared'
 import { EXPORT_ASSETS_DIR, PROJECT_ASSETS_DIR } from '../shared'
@@ -22,6 +22,10 @@ const isDev = process.env.NODE_ENV === 'development'
  * TODO: Remove this flag once all project files have been migrated to the new format.
  */
 const ENABLE_BACKWARD_COMPAT_ASSET_PATHS = true
+
+// Call this once at the top of your main process file
+// It ensures cleanup even if the app crashes or is terminated
+tmp.setGracefulCleanup()
 
 // ── Persist a reference to the main window for modal dialogs ─────────────────
 let mainWindow: BrowserWindow | null = null
@@ -491,11 +495,12 @@ createHandler('open-path-in-explorer', async (_e, filePath: string) => {
 })
 
 createHandler('create-temp-folder', async () => {
-  const tempBase = os.tmpdir()
-  const uniqueName = `minigame-temp-${Date.now()}-${crypto.randomUUID()}`
-  const tempFolder = path.join(tempBase, uniqueName)
-  fs.mkdirSync(tempFolder, { recursive: true })
-  return tempFolder
+  // .dirSync creates the directory and returns an object
+  const tmpObj = tmp.dirSync({
+    prefix: 'minigame-temp-',
+    unsafeCleanup: true // This allows deleting the folder even if it's not empty
+  })
+  return tmpObj.name
 })
 
 // ── IPC: Settings ─────────────────────────────────────────────────────────────

@@ -2304,6 +2304,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/tmp@npm:^0.2.6":
+  version: 0.2.6
+  resolution: "@types/tmp@npm:0.2.6"
+  checksum: 10c0/a11bfa2cd8eaa6c5d62f62a3569192d7a2c28efdc5c17af0b0551db85816b2afc8156f3ca15ac76f0b142ae1403f04f44279871424233a1f3390b2e5fc828cd0
+  languageName: node
+  linkType: hard
+
 "@types/uuid@npm:^11.0.0":
   version: 11.0.0
   resolution: "@types/uuid@npm:11.0.0"
@@ -3989,6 +3996,7 @@ __metadata:
     "@types/node": "npm:^25.5.2"
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"
+    "@types/tmp": "npm:^0.2.6"
     "@types/uuid": "npm:^11.0.0"
     "@vitejs/plugin-react": "npm:^6.0.1"
     archiver: "npm:^7.0.1"
@@ -4018,6 +4026,7 @@ __metadata:
     react-use: "npm:^17.6.0"
     react-zoom-pan-pinch: "npm:^3.7.0"
     tailwindcss: "npm:^4.2.2"
+    tmp: "npm:^0.2.5"
     travels: "npm:^1.1.0"
     typescript: "npm:^6.0.2"
     usehooks-ts: "npm:^3.1.1"
@@ -9223,7 +9232,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tmp@npm:^0.2.0":
+"tmp@npm:^0.2.0, tmp@npm:^0.2.5":
   version: 0.2.5
   resolution: "tmp@npm:0.2.5"
   checksum: 10c0/cee5bb7d674bb4ba3ab3f3841c2ca7e46daeb2109eec395c1ec7329a91d52fcb21032b79ac25161a37b2565c4858fefab927af9735926a113ef7bac9091a6e0e
