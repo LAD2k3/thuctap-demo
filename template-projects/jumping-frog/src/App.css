@@ -847,7 +847,7 @@
 }
 
 .frog--jumping {
-  animation: frogFrames 1s steps(1) both;
+  animation: frogFrames var(--frog-jump-duration, 900ms) linear both;
 }
 
 .frog--landing {
@@ -910,26 +910,32 @@
 }
 
 @keyframes frogFrames {
-  0% {
+  0%,
+  16.66% {
     background-position: 0 0;
   }
 
-  18% {
+  16.67%,
+  33.33% {
     background-position: 20% 0;
   }
 
-  38% {
+  33.34%,
+  50% {
     background-position: 40% 0;
   }
 
-  58% {
+  50.01%,
+  66.66% {
     background-position: 60% 0;
   }
 
-  78% {
+  66.67%,
+  83.33% {
     background-position: 80% 0;
   }
 
+  83.34%,
   100% {
     background-position: 100% 0;
   }
